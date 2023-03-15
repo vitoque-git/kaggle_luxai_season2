@@ -78,7 +78,7 @@ class Agent():
                 chosen_params = ()
 
                 # the radius around which we look for rubles
-                AREA_TO_CALCULATE_RUBLE_DENSITY = 10
+                DIST_RUBLE = 10
                 WATER_TO_ALLOCATE = 300
                 METAL_TO_ALLOCATE = 300
 
@@ -92,10 +92,25 @@ class Agent():
                     ore_tile_distances = np.mean((ore_tile_locations - loc) ** 2, 1)
 
                     # the density of ruble between the location and d_ruble
-                    density_rubble = np.mean(
-                        obs["board"]["rubble"][
-                        max(loc[0] - AREA_TO_CALCULATE_RUBLE_DENSITY, 0):min(loc[0] + AREA_TO_CALCULATE_RUBLE_DENSITY, 47),
-                        max(loc[1] - AREA_TO_CALCULATE_RUBLE_DENSITY, 0):max(loc[1] + AREA_TO_CALCULATE_RUBLE_DENSITY, 47)])
+                    x = loc[0]
+                    y = loc[1]
+                    x1 = max(x - DIST_RUBLE, 0)
+                    x2 = min(x + DIST_RUBLE, 47)
+                    y1 = max(y - DIST_RUBLE, 0)
+                    y2 = min(y + DIST_RUBLE, 47)
+
+                    area_around_factory = obs["board"]["rubble"][
+                        x1:x2,
+                        y1:y2]
+                    #zero the centre 3x3 where we put the factory
+                    area_factory = obs["board"]["rubble"][max(x - 1, 0):min(x + 1, 47),max(y - 1, 0):max(y + 1, 47)]
+
+                    area_size = (x2-x1)*(y2-y1)
+                    density_rubble = (np.sum(area_around_factory) - np.sum(area_factory)) / area_size
+                    potential_lichen = area_size * 100 - (np.sum(area_around_factory) - np.sum(area_factory))
+
+
+                    #prx(area_around_factory)
 
                     closes_opp_factory_dist = 0
                     if len(opp_factories) >= 1:
@@ -104,11 +119,13 @@ class Agent():
                     if len(my_factories) >= 1:
                         closes_my_factory_dist = np.min(np.mean((np.array(my_factories) - loc) ** 2, 1))
 
+                    kpi_build_factory = 0
                     if (water_left > 0):
                         # if we still have water, we crate meaningful factories
                         kpi_build_factory = np.min(ice_tile_distances) * 10 \
                                            + 0.01 * np.min(ore_tile_distances) \
-                                           + 10 * density_rubble / (AREA_TO_CALCULATE_RUBLE_DENSITY) \
+                                           - 0.01 * area_size \
+                                           - 0.1 * potential_lichen / (DIST_RUBLE) \
                                            - closes_opp_factory_dist * 0.1 \
                                            + closes_my_factory_dist * 0.01
                     else:
@@ -118,14 +135,14 @@ class Agent():
                     if kpi_build_factory < min_dist:
                         min_dist = kpi_build_factory
                         best_loc = loc
-                        chosen_params = (kpi_build_factory,
+                        chosen_params = (kpi_build_factory.round(2),
                                          "ice="+str(np.min(ice_tile_distances)),
                                          "ore="+str(np.min(ore_tile_distances)),
-                                         "rbl="+str(density_rubble),
+                                         "are="+str(area_size),
+                                         "lic="+str(potential_lichen),
                                          "ofc="+str(closes_opp_factory_dist),
                                          "mfc="+str(closes_opp_factory_dist),
-                                         #"ICE="+str(ice_tile_distances),
-                                         #"ORE="+str(ore_tile_distances)
+                                         x1,x2,y1,y2
                                          )
 
 
@@ -200,7 +217,7 @@ class Agent():
         turn = step - self.early_setup_steps
         pr("---------Turn number ", turn)
         t_prefix = "T_" + str(turn)
-        turn_left = 1000 - turn
+        turn_left = 1001 - turn
 
         # Unit locations
         self.botpos, self.botposheavy, self.opp_botpos = self.get_unit_locations(game_state)
