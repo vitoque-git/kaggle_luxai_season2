@@ -72,6 +72,19 @@ class Unit:
     def recharge(self, x, repeat=0, n=1):
         return np.array([5, 0, 0, x, repeat, n])
 
+    def battery_capacity(self):
+        return 150 if self.unit_type == "LIGHT" else 3000
+
+    def cargo_space(self):
+        return 100 if self.unit_type == "LIGHT" else 1000
+
+    def def_move_cost(self):
+        return 1 if self.unit_type == "LIGHT" else 20
+
+    def rubble_dig_cost(self):
+        return 5 if self.unit_type == "LIGHT" else 100
+
+
     def __str__(self) -> str:
         out = f"[{self.team_id}] {self.unit_id} {self.unit_type} at {self.pos}"
         return out
