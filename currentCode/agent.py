@@ -316,7 +316,10 @@ class Agent():
         opp_strain = [f.strain_id for _, f in game_state.factories[self.opp_player].items()]
         lichen_opposite_map = []
         for strain in opp_strain:
-            lichen_opposite_map = np.argwhere(game_state.board.lichen_strains == strain)
+            if len(lichen_opposite_map) == 0:
+                lichen_opposite_map = np.argwhere(game_state.board.lichen_strains == strain)
+            else:
+                lichen_opposite_map.append(np.argwhere(game_state.board.lichen_strains == strain))
 
 
 
