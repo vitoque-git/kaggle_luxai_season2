@@ -94,11 +94,7 @@ class Agent():
                     # the density of ruble between the location and d_ruble
                     x = loc[0]
                     y = loc[1]
-                    if x== 3 and y==44:
-                        best_loc = loc
-                        break
-
-
+                    
                     x1 = max(x - DIST_RUBLE, 0)
                     x2 = min(x + DIST_RUBLE, 47)
                     y1 = max(y - DIST_RUBLE, 0)
