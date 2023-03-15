@@ -1,3 +1,7 @@
+import math
+
+import numpy
+
 from lux.kit import obs_to_game_state, GameState, EnvConfig
 from lux.utils import direction_to, my_turn_to_place_factory
 import numpy as np
@@ -267,10 +271,17 @@ class Agent():
 
             #if we have excess water use to grow lichen
             if (factory.cargo.water - factory.water_cost(game_state)) > 1:
-                if  turn_left<200 and \
-                        (factory.cargo.water + (factory.cargo.ice/4).__floor__() - factory.water_cost(game_state)) > turn_left:
-                    prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state),"left=", turn_left)
+                # at the end, we start water if we can
+                if turn_left<200 and \
+                        (factory.cargo.water + math.floor(factory.cargo.ice / 4) - factory.water_cost(game_state)) > turn_left:
+                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state),"left=", turn_left)
                     actions[factory_id] = factory.water()
+
+                # anyway, we start water if we have resource to water till the end
+                elif (factory.cargo.water + math.floor(factory.cargo.ice / 4)) > turn_left * min(2,(1 + factory.water_cost(game_state))):
+                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state), "left=", turn_left)
+                    actions[factory_id] = factory.water()
+
 
         factory_tiles = np.array(factory_tiles)  # Factory locations (to go back to)
 
