@@ -32,7 +32,7 @@ class Agent():
             'player_1': 'FirstMars'
         }
 
-        self.bots = {}
+        self.bots_task = {}
         self.botpos = []
         self.bot_factory = {}
         self.factory_bots = {}
@@ -94,6 +94,11 @@ class Agent():
                     # the density of ruble between the location and d_ruble
                     x = loc[0]
                     y = loc[1]
+                    if x== 3 and y==44:
+                        best_loc = loc
+                        break
+
+
                     x1 = max(x - DIST_RUBLE, 0)
                     x2 = min(x + DIST_RUBLE, 47)
                     y1 = max(y - DIST_RUBLE, 0)
@@ -320,10 +325,16 @@ class Agent():
         rubble_locations = rubble_locations_all
 
         for unit_id, unit in iter(sorted(units.items())):
-            PREFIX = t_prefix+"u:"+unit_id
+            PREFIX = t_prefix+" u:"+unit_id
             #prx(PREFIX)
-            if unit_id not in self.bots.keys():
-                self.bots[unit_id] = ''
+            if unit_id not in self.bots_task.keys():
+                self.bots_task[unit_id] = ''
+
+            if len(self.opp_botpos) != 0:
+                opp_pos = np.array(self.opp_botpos).reshape(-1, 2)
+                opponent_unit_distances = np.mean((opp_pos - unit.pos) ** 2, 1)
+                opponent_min_distance = np.min(opponent_unit_distances)
+                opponent_pos_min_distance = opp_pos[np.argmin(opponent_min_distance)]
 
             if len(factory_tiles) > 0:
                 closest_factory_tile = factory_tiles[0]
@@ -358,16 +369,20 @@ class Agent():
                     assert False
 
                 ## Assigning task for the bot
-                if self.bots[unit_id] == '':
+                if self.bots_task[unit_id] == '':
                     task = 'ice'
                     if len(self.factory_queue[self.bot_factory[unit_id]]) != 0:
                         task = self.factory_queue[self.bot_factory[unit_id]].pop(0)
-                    self.bots[unit_id] = task
+                    prx(PREFIX,unit.unit_type,'assigned task',task)
+                    self.bots_task[unit_id] = task
                     self.factory_bots[self.bot_factory[unit_id]][task].append(unit_id)
 
+                assigned_task = self.bots_task[unit_id]
+                if len(self.opp_botpos) != 0 and opponent_min_distance == 1 and unit.unit_type == "HEAVY":
+                    assigned_task = "kill"
+                    prx(PREFIX, unit.unit_type, 'temporarly tasked as', assigned_task)
 
-
-                if self.bots[unit_id] == "ice":
+                if assigned_task == "ice":
                     if unit.cargo.ice < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
                             game_state) + unit.def_move_cost() * distance_to_factory:
 
@@ -401,7 +416,7 @@ class Agent():
                             direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
                             move_cost = unit.move_cost(game_state, direction)
 
-                elif self.bots[unit_id] == 'ore':
+                elif assigned_task == 'ore':
                     if unit.cargo.ore < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
                             game_state) + unit.def_move_cost() * distance_to_factory:
 
@@ -434,7 +449,7 @@ class Agent():
                             direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
                             move_cost = unit.move_cost(game_state, direction)
                 # RUBBLE
-                elif self.bots[unit_id] == 'rubble':
+                elif assigned_task == 'rubble':
                     if unit.can_dig(game_state):
 
                         # compute the distance to each rubble tile from this unit and pick the closest
@@ -464,22 +479,17 @@ class Agent():
                         else:
                             direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
                             move_cost = unit.move_cost(game_state, direction)
-                elif self.bots[unit_id] == 'kill':
+                elif assigned_task == 'kill':
 
                     if len(self.opp_botpos) != 0:
-                        opp_pos = np.array(self.opp_botpos).reshape(-1, 2)
-                        opponent_unit_distances = np.mean((opp_pos - unit.pos) ** 2, 1)
-                        min_distance = np.min(opponent_unit_distances)
-                        pos_min_distance = opp_pos[np.argmin(min_distance)]
-
-                        if min_distance == 1:
-                            direction = self.get_direction(unit, np.array(pos_min_distance),
-                                                           [np.array(pos_min_distance)])
+                        if opponent_min_distance == 1:
+                            direction = self.get_direction(unit, np.array(opponent_pos_min_distance),
+                                                           [np.array(opponent_pos_min_distance)])
                             move_cost = unit.move_cost(game_state, direction)
                         else:
                             if unit.power > unit.action_queue_cost(game_state):
-                                direction = self.get_direction(unit, np.array(pos_min_distance),
-                                                               [np.array(pos_min_distance)])
+                                direction = self.get_direction(unit, np.array(opponent_pos_min_distance),
+                                                               [np.array(opponent_pos_min_distance)])
                                 move_cost = unit.move_cost(game_state, direction)
                             else:
                                 if adjacent_to_factory:
