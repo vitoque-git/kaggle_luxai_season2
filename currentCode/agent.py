@@ -319,27 +319,27 @@ class Agent():
         ore_locations = ore_locations_all
         rubble_locations = rubble_locations_all
 
-        for factory_id, unit in iter(sorted(units.items())):
-            PREFIX = t_prefix+"u:"+factory_id
+        for unit_id, unit in iter(sorted(units.items())):
+            PREFIX = t_prefix+"u:"+unit_id
             #prx(PREFIX)
-            if factory_id not in self.bots.keys():
-                self.bots[factory_id] = ''
+            if unit_id not in self.bots.keys():
+                self.bots[unit_id] = ''
 
             if len(factory_tiles) > 0:
                 closest_factory_tile = factory_tiles[0]
 
-            if factory_id not in self.bot_factory.keys():
+            if unit_id not in self.bot_factory.keys():
                 factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
                 min_index = np.argmin(factory_distances)
                 closest_factory_tile = factory_tiles[min_index]
-                self.bot_factory[factory_id] = factory_ids[min_index]
-            elif self.bot_factory[factory_id] not in factory_ids:
+                self.bot_factory[unit_id] = factory_ids[min_index]
+            elif self.bot_factory[unit_id] not in factory_ids:
                 factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
                 min_index = np.argmin(factory_distances)
                 closest_factory_tile = factory_tiles[min_index]
-                self.bot_factory[factory_id] = factory_ids[min_index]
+                self.bot_factory[unit_id] = factory_ids[min_index]
             else:
-                closest_factory_tile = factories[self.bot_factory[factory_id]].pos
+                closest_factory_tile = factories[self.bot_factory[unit_id]].pos
 
             distance_to_factory = np.mean((np.array(closest_factory_tile) - np.array(unit.pos)) ** 2)
             adjacent_to_factory = False
@@ -358,16 +358,16 @@ class Agent():
                     assert False
 
                 ## Assigning task for the bot
-                if self.bots[factory_id] == '':
+                if self.bots[unit_id] == '':
                     task = 'ice'
-                    if len(self.factory_queue[self.bot_factory[factory_id]]) != 0:
-                        task = self.factory_queue[self.bot_factory[factory_id]].pop(0)
-                    self.bots[factory_id] = task
-                    self.factory_bots[self.bot_factory[factory_id]][task].append(factory_id)
+                    if len(self.factory_queue[self.bot_factory[unit_id]]) != 0:
+                        task = self.factory_queue[self.bot_factory[unit_id]].pop(0)
+                    self.bots[unit_id] = task
+                    self.factory_bots[self.bot_factory[unit_id]][task].append(unit_id)
 
 
 
-                if self.bots[factory_id] == "ice":
+                if self.bots[unit_id] == "ice":
                     if unit.cargo.ice < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
                             game_state) + unit.def_move_cost() * distance_to_factory:
 
@@ -382,7 +382,7 @@ class Agent():
                         if np.all(closest_ice == unit.pos):
                             if unit.power >= unit.dig_cost(game_state) + \
                                     unit.action_queue_cost(game_state):
-                                actions[factory_id] = [unit.dig(repeat=False)]
+                                actions[unit_id] = [unit.dig(repeat=False)]
                         else:
                             direction = self.get_direction(unit, closest_ice, sorted_ice)
                             move_cost = unit.move_cost(game_state, direction)
@@ -392,16 +392,16 @@ class Agent():
 
                         if adjacent_to_factory:
                             if unit.cargo.ice > 0:
-                                actions[factory_id] = [unit.transfer(0, 0, unit.cargo.ice, repeat=False)]
+                                actions[unit_id] = [unit.transfer(0, 0, unit.cargo.ice, repeat=False)]
                             elif unit.cargo.ore > 0:
-                                actions[factory_id] = [unit.transfer(0, 1, unit.cargo.ore, repeat=False)]
+                                actions[unit_id] = [unit.transfer(0, 1, unit.cargo.ore, repeat=False)]
                             elif unit.power < unit.battery_capacity() * 0.1:
-                                actions[factory_id] = [unit.pickup(4, unit.battery_capacity() - unit.power)]
+                                actions[unit_id] = [unit.pickup(4, unit.battery_capacity() - unit.power)]
                         else:
                             direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
                             move_cost = unit.move_cost(game_state, direction)
 
-                elif self.bots[factory_id] == 'ore':
+                elif self.bots[unit_id] == 'ore':
                     if unit.cargo.ore < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
                             game_state) + unit.def_move_cost() * distance_to_factory:
 
@@ -415,7 +415,7 @@ class Agent():
                         if np.all(closest_ore == unit.pos):
                             if unit.power >= unit.dig_cost(game_state) + \
                                     unit.action_queue_cost(game_state):
-                                actions[factory_id] = [unit.dig(repeat=False)]
+                                actions[unit_id] = [unit.dig(repeat=False)]
                         else:
                             direction = self.get_direction(unit, closest_ore, sorted_ore)
                             move_cost = unit.move_cost(game_state, direction)
@@ -425,16 +425,16 @@ class Agent():
 
                         if adjacent_to_factory:
                             if unit.cargo.ore > 0:
-                                actions[factory_id] = [unit.transfer(0, 1, unit.cargo.ore, repeat=False)]
+                                actions[unit_id] = [unit.transfer(0, 1, unit.cargo.ore, repeat=False)]
                             elif unit.cargo.ice > 0:
-                                actions[factory_id] = [unit.transfer(0, 0, unit.cargo.ice, repeat=False)]
+                                actions[unit_id] = [unit.transfer(0, 0, unit.cargo.ice, repeat=False)]
                             elif unit.power < unit.battery_capacity() * 0.1:
-                                actions[factory_id] = [unit.pickup(4, unit.battery_capacity() - unit.power)]
+                                actions[unit_id] = [unit.pickup(4, unit.battery_capacity() - unit.power)]
                         else:
                             direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
                             move_cost = unit.move_cost(game_state, direction)
                 # RUBBLE
-                elif self.bots[factory_id] == 'rubble':
+                elif self.bots[unit_id] == 'rubble':
                     if unit.can_dig(game_state):
 
                         # compute the distance to each rubble tile from this unit and pick the closest
@@ -446,7 +446,7 @@ class Agent():
                         if np.all(closest_rubble == unit.pos) or rubble_map[unit.pos[0], unit.pos[1]] != 0:
                             if unit.power >= unit.dig_cost(game_state) + \
                                     unit.action_queue_cost(game_state):
-                                actions[factory_id] = [unit.dig(repeat=False)]
+                                actions[unit_id] = [unit.dig(repeat=False)]
                         else:
                             if len(rubble_locations) != 0:
                                 direction = self.get_direction(unit, closest_rubble, sorted_rubble)
@@ -456,15 +456,15 @@ class Agent():
 
                         if adjacent_to_factory:
                             if unit.cargo.ore > 0:
-                                actions[factory_id] = [unit.transfer(0, 1, unit.cargo.ore, repeat=False)]
+                                actions[unit_id] = [unit.transfer(0, 1, unit.cargo.ore, repeat=False)]
                             elif unit.cargo.ice > 0:
-                                actions[factory_id] = [unit.transfer(0, 0, unit.cargo.ice, repeat=False)]
+                                actions[unit_id] = [unit.transfer(0, 0, unit.cargo.ice, repeat=False)]
                             elif unit.power < unit.battery_capacity() * 0.1:
-                                actions[factory_id] = [unit.pickup(4, unit.battery_capacity() - unit.power)]
+                                actions[unit_id] = [unit.pickup(4, unit.battery_capacity() - unit.power)]
                         else:
                             direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
                             move_cost = unit.move_cost(game_state, direction)
-                elif self.bots[factory_id] == 'kill':
+                elif self.bots[unit_id] == 'kill':
 
                     if len(self.opp_botpos) != 0:
                         opp_pos = np.array(self.opp_botpos).reshape(-1, 2)
@@ -484,11 +484,11 @@ class Agent():
                             else:
                                 if adjacent_to_factory:
                                     if unit.cargo.ore > 0:
-                                        actions[factory_id] = [unit.transfer(0, 1, unit.cargo.ore, repeat=False)]
+                                        actions[unit_id] = [unit.transfer(0, 1, unit.cargo.ore, repeat=False)]
                                     elif unit.cargo.ice > 0:
-                                        actions[factory_id] = [unit.transfer(0, 0, unit.cargo.ice, repeat=False)]
+                                        actions[unit_id] = [unit.transfer(0, 0, unit.cargo.ice, repeat=False)]
                                     elif unit.power < unit.battery_capacity() * 0.1:
-                                        actions[factory_id] = [unit.pickup(4, unit.battery_capacity() - unit.power)]
+                                        actions[unit_id] = [unit.pickup(4, unit.battery_capacity() - unit.power)]
                                 else:
                                     direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
                                     move_cost = unit.move_cost(game_state, direction)
@@ -496,7 +496,7 @@ class Agent():
                 # check move_cost is not None, meaning that direction is not blocked
                 # check if unit has enough power to move and update the action queue.
                 if move_cost is not None and unit.power >= move_cost + unit.action_queue_cost(game_state):
-                    actions[factory_id] = [unit.move(direction, repeat=False)]
+                    actions[unit_id] = [unit.move(direction, repeat=False)]
 
         return actions
 
