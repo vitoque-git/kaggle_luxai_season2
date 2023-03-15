@@ -94,7 +94,7 @@ class Agent():
                     # the density of ruble between the location and d_ruble
                     x = loc[0]
                     y = loc[1]
-                    
+
                     x1 = max(x - DIST_RUBLE, 0)
                     x2 = min(x + DIST_RUBLE, 47)
                     y1 = max(y - DIST_RUBLE, 0)
@@ -255,7 +255,7 @@ class Agent():
                 'kill': 1
             }
             # NO. BOTS PER TASK
-            for task in ['kill', 'ice', 'ore', 'rubble']:
+            for task in ['ice', 'kill', 'ore', 'rubble']:
                 num_bots = len(self.factory_bots[factory_id][task]) + sum([task in self.factory_queue[factory_id]])
                 if num_bots < min_bots[task]:
                     minbots = num_bots
@@ -290,14 +290,14 @@ class Agent():
             #if we have excess water use to grow lichen
             if (factory.cargo.water - factory.water_cost(game_state)) > 1:
                 # at the end, we start water if we can
-                if turn_left<200 and \
+                if turn_left<10 and \
                         (factory.cargo.water + math.floor(factory.cargo.ice / 4) - factory.water_cost(game_state)) > turn_left:
-                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state),"left=", turn_left)
+                    prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state),"left=", turn_left)
                     actions[factory_id] = factory.water()
 
                 # anyway, we start water if we have resource to water till the end
-                elif (factory.cargo.water + math.floor(factory.cargo.ice / 4)) > turn_left * min(2,(1 + factory.water_cost(game_state))):
-                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state), "left=", turn_left)
+                elif (factory.cargo.water + math.floor(factory.cargo.ice / 4)) > turn_left * max(1,(1 + factory.water_cost(game_state))):
+                    prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state), "left=", turn_left)
                     actions[factory_id] = factory.water()
 
 
@@ -311,6 +311,15 @@ class Agent():
         ice_map = game_state.board.ice
         ore_map = game_state.board.ore
         rubble_map = game_state.board.rubble
+
+        # prx(t_prefix,'lichen',lichen_strain_map)
+        opp_strain = [f.strain_id for _, f in game_state.factories[self.opp_player].items()]
+        lichen_opposite_map = []
+        for strain in opp_strain:
+            lichen_opposite_map = np.argwhere(game_state.board.lichen_strains == strain)
+
+
+
 
         ice_locations_all = np.argwhere(ice_map >= 1)  # numpy position of every ice tile
         ore_locations_all = np.argwhere(ore_map >= 1)  # numpy position of every ore tile
@@ -364,19 +373,20 @@ class Agent():
                     print(closest_factory_tile, unit.pos)
                     assert False
 
+                factory_belong = self.bot_factory[unit_id]
                 ## Assigning task for the bot
                 if self.bots_task[unit_id] == '':
                     task = 'ice'
                     if len(self.factory_queue[self.bot_factory[unit_id]]) != 0:
                         task = self.factory_queue[self.bot_factory[unit_id]].pop(0)
-                    prx(PREFIX,unit.unit_type,'assigned task',task)
+                    prx(PREFIX,'from',factory_belong,unit.unit_type,'assigned task',task)
                     self.bots_task[unit_id] = task
-                    self.factory_bots[self.bot_factory[unit_id]][task].append(unit_id)
+                    self.factory_bots[factory_belong][task].append(unit_id)
 
                 assigned_task = self.bots_task[unit_id]
-                if len(self.opp_botpos) != 0 and opponent_min_distance == 1 and unit.unit_type == "HEAVY":
+                if len(self.opp_botpos) != 0 and opponent_min_distance == 1 and unit.unit_type == "HEAVY" and assigned_task != "kill":
                     assigned_task = "kill"
-                    prx(PREFIX, unit.unit_type, 'temporarly tasked as', assigned_task)
+                    prx(PREFIX, 'from', factory_belong, unit.unit_type, 'temporarly tasked as', assigned_task)
 
                 if assigned_task == "ice":
                     if unit.cargo.ice < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
@@ -476,6 +486,21 @@ class Agent():
                             direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
                             move_cost = unit.move_cost(game_state, direction)
                 elif assigned_task == 'kill':
+
+                    if len(self.opp_botpos) == 0:
+                        if len(lichen_opposite_map) >0:
+                            opp_lichen_distances = np.mean((lichen_opposite_map - unit.pos) ** 2, 1)
+                            sorted_opp_lichen = [lichen_opposite_map[k] for k in np.argsort(opp_lichen_distances)]
+                            closest_opposite_lichen = sorted_opp_lichen[0]
+
+                            # if we have reached the lichen tile, start mining if possible
+                            if np.all(closest_opposite_lichen == unit.pos):
+                                if unit.power >= unit.dig_cost(game_state) + \
+                                        unit.action_queue_cost(game_state):
+                                    actions[unit_id] = [unit.dig(repeat=False)]
+                            else:
+                                direction = self.get_direction(unit, closest_opposite_lichen, sorted_opp_lichen)
+                                move_cost = unit.move_cost(game_state, direction)
 
                     if len(self.opp_botpos) != 0:
                         if opponent_min_distance == 1:
