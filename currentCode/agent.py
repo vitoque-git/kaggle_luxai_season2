@@ -1,11 +1,13 @@
 import math
 
-import numpy
-
 from lux.kit import obs_to_game_state, GameState, EnvConfig
 from lux.utils import direction_to, my_turn_to_place_factory
-import numpy as np
 import sys
+
+
+import numpy as np
+
+import networkx as nx
 
 # create robot in the best location (especially first)
 # do not bring ice to city that do not need
@@ -39,6 +41,8 @@ class Agent():
         self.factory_queue = {}
         self.move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
         self.early_setup_steps = 0;
+
+        self.G = nx.Graph()
 
     def early_setup(self, step: int, obs, remainingOverageTime: int = 60):
         '''
@@ -208,8 +212,7 @@ class Agent():
         '''
         actions = dict()
         game_state = obs_to_game_state(step, self.env_cfg, obs)
-        state_obs = obs
-
+        self.build_path(game_state)
 
         if self.early_setup_steps == 0:
             self.early_setup_steps = step
@@ -219,6 +222,8 @@ class Agent():
         pr("---------Turn number ", turn)
         t_prefix = "T_" + str(turn)
         turn_left = 1001 - turn
+
+
 
         # Unit locations
         self.botpos, self.botposheavy, self.opp_botpos, self.opp_bbotposheavy = self.get_unit_locations(game_state)
@@ -534,6 +539,9 @@ class Agent():
 
         return actions
 
+    def get_distance(self, pos1, pos2):
+        return abs(pos1[0]-pos2[0]) + abs(pos1[1]-pos2[1])
+
     def get_distance_vector(self, pos, points):
         return 2 * np.mean(np.abs(points - pos), 1)
 
@@ -563,4 +571,81 @@ class Agent():
                         opp_botposheavy.append(unit.pos)
 
         return botpos, botposheavy, opp_botpos, opp_botposheavy
+
+
+    def build_path(self,game_state):
+
+        # PIC_SIZE = 1024
+        #
+        # env = LuxAI_S2()
+        # obs = env.reset(seed=22)
+        # img = env.render("rgb_array", width=PIC_SIZE, height=PIC_SIZE)
+        #
+        # plt.figure(figsize=(6, 6))
+        # plt.imshow(img)
+
+        G = nx.Graph()
+
+        add_delta = lambda a: tuple(np.array(a[0]) + np.array(a[1]))
+
+        opp_factories = [np.array(f.pos) for _, f in game_state.factories[self.opp_player].items()]
+        opp_factories_areas = []
+        for pos in opp_factories:
+            # prx('city',pos)
+            x=pos[0]
+            y=pos[1]
+            opp_factories_areas.append((x-1,y-1))
+            opp_factories_areas.append((x-1,y  ))
+            opp_factories_areas.append((x-1,y+1))
+            opp_factories_areas.append((x,y-1))
+            opp_factories_areas.append((x,y  ))
+            opp_factories_areas.append((x,y+1))
+            opp_factories_areas.append((x+1,y-1))
+            opp_factories_areas.append((x+1,y  ))
+            opp_factories_areas.append((x+1,y+1))
+
+        rubbles = game_state.board.rubble
+        for x in range(rubbles.shape[0]):
+            for y in range(rubbles.shape[1]):
+                G.add_node((x, y), rubble=rubbles[x, y])
+
+        # prx("Nodes created.")
+
+        deltas = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        for g1 in G.nodes:
+            x1, y1 = g1
+            for delta in deltas:
+                g2 = add_delta((g1, delta))
+                if g2 in opp_factories_areas:
+                    G.add_edge(g1, g2, cost=10e6)
+                elif G.has_node(g2) :
+                    G.add_edge(g1, g2, cost=20 + rubbles[g2])
+        # prx("Edges created.")
+
+    def get_shortest_path(self, from_pt, to_pt):
+        # all_pts = [(x, y) for x in range(0, 48) for y in range(0, 48)]
+        # np.random.shuffle(all_pts)
+        # ptA, ptB = all_pts[0], all_pts[1]
+        ptA = (from_pt[0], from_pt[1])
+        ptB = (to_pt[0], to_pt[1])
+        path = nx.shortest_path(G, source=ptA, target=ptB, weight="cost")
+        prx('ptA, Ptb', from_pt, to_pt, "dist",self.get_distance(from_pt, to_pt))
+        prx('path',path, "dist",len(path)-1)
+        a = 5/0
+        # scale = lambda a: (a + .5) / 48 * PIC_SIZE
+        #
+        # plt.figure(figsize=(6, 6))
+        # cA = plt.Circle((scale(ptA[0]), scale(ptA[1])), scale(0), color="white")
+        # plt.gca().add_patch(cA)
+        # cB = plt.Circle((scale(ptB[0]), scale(ptB[1])), scale(0), color="yellow")
+        # plt.gca().add_patch(cB)
+        # plt.plot([scale(p[0]) for p in path], [scale(p[1]) for p in path], c="lime")
+        #
+        # plt.imshow(img, alpha=0.9)
+
+
+
+
+
+
 
