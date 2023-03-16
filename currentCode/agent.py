@@ -176,35 +176,6 @@ class Agent():
         else:
             return str(new_pos) in unitpos
 
-    def get_direction(self, unit, closest_tile, sorted_tiles):
-
-        closest_tile = np.array(closest_tile)
-        direction = direction_to(np.array(unit.pos), closest_tile)
-        k = 0
-        all_unit_positions = set(self.botpos.values())
-        unit_type = unit.unit_type
-        while self.check_collision(np.array(unit.pos), direction, all_unit_positions, unit_type) and k < min(
-                len(sorted_tiles) - 1, 500):
-            k += 1
-            closest_tile = sorted_tiles[k]
-            closest_tile = np.array(closest_tile)
-            direction = direction_to(np.array(unit.pos), closest_tile)
-
-        if self.check_collision(unit.pos, direction, all_unit_positions, unit_type):
-            for direction_x in np.arange(4, -1, -1):
-                if not self.check_collision(np.array(unit.pos), direction_x, all_unit_positions, unit_type):
-                    direction = direction_x
-                    break
-
-        if self.check_collision(np.array(unit.pos), direction, all_unit_positions, unit_type):
-            direction = np.random.choice(np.arange(5))
-
-        move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
-
-        self.botpos[unit.unit_id] = str(np.array(unit.pos) + move_deltas[direction])
-
-        return direction
-
     def act(self, step: int, obs, remainingOverageTime: int = 60):
         '''
         1. Regular Phase
@@ -584,7 +555,7 @@ class Agent():
         # plt.figure(figsize=(6, 6))
         # plt.imshow(img)
 
-        G = nx.Graph()
+        self.G = nx.Graph()
 
         add_delta = lambda a: tuple(np.array(a[0]) + np.array(a[1]))
 
@@ -607,19 +578,19 @@ class Agent():
         rubbles = game_state.board.rubble
         for x in range(rubbles.shape[0]):
             for y in range(rubbles.shape[1]):
-                G.add_node((x, y), rubble=rubbles[x, y])
+                self.G.add_node((x, y), rubble=rubbles[x, y])
 
         # prx("Nodes created.")
 
         deltas = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-        for g1 in G.nodes:
+        for g1 in self.G.nodes:
             x1, y1 = g1
             for delta in deltas:
                 g2 = add_delta((g1, delta))
                 if g2 in opp_factories_areas:
-                    G.add_edge(g1, g2, cost=10e6)
-                elif G.has_node(g2) :
-                    G.add_edge(g1, g2, cost=20 + rubbles[g2])
+                    self.G.add_edge(g1, g2, cost=10e6)
+                elif self.G.has_node(g2) :
+                    self.G.add_edge(g1, g2, cost=20 + rubbles[g2])
         # prx("Edges created.")
 
     def get_shortest_path(self, from_pt, to_pt):
@@ -628,10 +599,10 @@ class Agent():
         # ptA, ptB = all_pts[0], all_pts[1]
         ptA = (from_pt[0], from_pt[1])
         ptB = (to_pt[0], to_pt[1])
-        path = nx.shortest_path(G, source=ptA, target=ptB, weight="cost")
-        prx('ptA, Ptb', from_pt, to_pt, "dist",self.get_distance(from_pt, to_pt))
-        prx('path',path, "dist",len(path)-1)
-        a = 5/0
+        path = nx.shortest_path(self.G, source=ptA, target=ptB, weight="cost")
+        # prx('ptA, Ptb', from_pt, to_pt, "dist",self.get_distance(from_pt, to_pt))
+        # prx('path',path, "dist",len(path)-1)
+        return path;
         # scale = lambda a: (a + .5) / 48 * PIC_SIZE
         #
         # plt.figure(figsize=(6, 6))
@@ -643,8 +614,37 @@ class Agent():
         #
         # plt.imshow(img, alpha=0.9)
 
+    def get_direction(self, unit, closest_tile, sorted_tiles):
 
+        closest_tile = np.array(closest_tile)
+        path = self.get_shortest_path(unit.pos, closest_tile)
+        direction = 0
+        if len(path) > 1:
+            direction = direction_to(np.array(unit.pos), path[1])
+        k = 0
+        all_unit_positions = set(self.botpos.values())
+        unit_type = unit.unit_type
+        while self.check_collision(np.array(unit.pos), direction, all_unit_positions, unit_type) and k < min(
+                len(sorted_tiles) - 1, 500):
+            k += 1
+            closest_tile = sorted_tiles[k]
+            closest_tile = np.array(closest_tile)
+            direction = direction_to(np.array(unit.pos), closest_tile)
 
+        if self.check_collision(unit.pos, direction, all_unit_positions, unit_type):
+            for direction_x in np.arange(4, -1, -1):
+                if not self.check_collision(np.array(unit.pos), direction_x, all_unit_positions, unit_type):
+                    direction = direction_x
+                    break
+
+        if self.check_collision(np.array(unit.pos), direction, all_unit_positions, unit_type):
+            direction = np.random.choice(np.arange(5))
+
+        move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
+
+        self.botpos[unit.unit_id] = str(np.array(unit.pos) + move_deltas[direction])
+
+        return direction
 
 
 
