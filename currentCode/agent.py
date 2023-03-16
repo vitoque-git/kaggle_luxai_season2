@@ -353,12 +353,12 @@ class Agent():
                 closest_factory_tile = factory_tiles[0]
 
             if unit_id not in self.bot_factory.keys():
-                factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
+                factory_distances = self.get_distance_vector(unit.pos,factory_tiles)
                 min_index = np.argmin(factory_distances)
                 closest_factory_tile = factory_tiles[min_index]
                 self.bot_factory[unit_id] = factory_ids[min_index]
             elif self.bot_factory[unit_id] not in factory_ids:
-                factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
+                factory_distances = self.get_distance_vector(unit.pos,factory_tiles)
                 min_index = np.argmin(factory_distances)
                 closest_factory_tile = factory_tiles[min_index]
                 self.bot_factory[unit_id] = factory_ids[min_index]
@@ -540,7 +540,7 @@ class Agent():
     def get_map_distances(self, locations, pos, rubble_map=[] ):
         if len(rubble_map)>0:
             rubbles = np.array([rubble_map[pos[0]][pos[1]] for pos in locations])
-        distances = np.mean((locations - pos) ** 2, 1)  # - (rubbles)*10
+        distances = self.get_distance_vector(pos, locations)  # - (rubbles)*10
         sorted_loc = [locations[k] for k in np.argsort(distances)]
         closest_loc = sorted_loc[0]
         return closest_loc, sorted_loc
