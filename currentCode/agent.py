@@ -221,7 +221,7 @@ class Agent():
         turn_left = 1001 - turn
 
         # Unit locations
-        self.botpos, self.botposheavy, self.opp_botpos = self.get_unit_locations(game_state)
+        self.botpos, self.botposheavy, self.opp_botpos, self.opp_bbotposheavy = self.get_unit_locations(game_state)
 
         # Build Robots
         factories = game_state.factories[self.player]
@@ -314,15 +314,14 @@ class Agent():
 
         # prx(t_prefix,'lichen',lichen_strain_map)
         opp_strain = [f.strain_id for _, f in game_state.factories[self.opp_player].items()]
-        lichen_opposite_map = []
+        lichen_opposite_locations = []
         for strain in opp_strain:
-            if len(lichen_opposite_map) == 0:
-                lichen_opposite_map = np.argwhere(game_state.board.lichen_strains == strain)
+            if len(lichen_opposite_locations) == 0:
+                lichen_opposite_locations = np.argwhere(game_state.board.lichen_strains == strain)
             else:
-                lichen_opposite_map.append(np.argwhere(game_state.board.lichen_strains == strain))
-
-
-
+                newarray = np.argwhere(game_state.board.lichen_strains == strain)
+                if len(newarray)>0:
+                    lichen_opposite_locations = np.vstack((lichen_opposite_locations,newarray))
 
         ice_locations_all = np.argwhere(ice_map >= 1)  # numpy position of every ice tile
         ore_locations_all = np.argwhere(ore_map >= 1)  # numpy position of every ore tile
@@ -391,17 +390,17 @@ class Agent():
                     assigned_task = "kill"
                     prx(PREFIX, 'from', factory_belong, unit.unit_type, 'temporarly tasked as', assigned_task)
 
+                #if turn_left<150 and assigned_task != "ore":
+                #    self.bots_task[unit_id] = 'rubble'
+                #    assigned_task = self.bots_task[unit_id]
+
                 if assigned_task == "ice":
                     if unit.cargo.ice < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
                             game_state) + unit.def_move_cost() * distance_to_factory:
 
-                        # compute the distance to each ice tile from this unit and pick the closest
+                        # get closest ice
+                        closest_ice, sorted_ice = self.get_map_distances(ice_locations, unit.pos)
 
-                        ice_rubbles = np.array([rubble_map[pos[0]][pos[1]] for pos in ice_locations])
-                        ice_distances = np.mean((ice_locations - unit.pos) ** 2, 1)  # - (ice_rubbles)*10
-                        sorted_ice = [ice_locations[k] for k in np.argsort(ice_distances)]
-
-                        closest_ice = sorted_ice[0]
                         # if we have reached the ice tile, start mining if possible
                         if np.all(closest_ice == unit.pos):
                             if unit.power >= unit.dig_cost(game_state) + \
@@ -429,12 +428,9 @@ class Agent():
                     if unit.cargo.ore < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
                             game_state) + unit.def_move_cost() * distance_to_factory:
 
-                        # compute the distance to each ore tile from this unit and pick the closest
-                        ore_rubbles = np.array([rubble_map[pos[0]][pos[1]] for pos in ore_locations])
-                        ore_distances = np.mean((ore_locations - unit.pos) ** 2, 1)  # + (ore_rubbles)*2
-                        sorted_ore = [ore_locations[k] for k in np.argsort(ore_distances)]
+                        # get closest ore
+                        closest_ore, sorted_ore = self.get_map_distances(ore_locations, unit.pos)
 
-                        closest_ore = sorted_ore[0]
                         # if we have reached the ore tile, start mining if possible
                         if np.all(closest_ore == unit.pos):
                             if unit.power >= unit.dig_cost(game_state) + \
@@ -462,9 +458,7 @@ class Agent():
                     if unit.can_dig(game_state):
 
                         # compute the distance to each rubble tile from this unit and pick the closest
-                        rubble_distances = np.mean((rubble_locations - unit.pos) ** 2, 1)
-                        sorted_rubble = [rubble_locations[k] for k in np.argsort(rubble_distances)]
-                        closest_rubble = sorted_rubble[0]
+                        closest_rubble, sorted_rubble = self.get_map_distances(rubble_locations, unit.pos)
 
                         # if we have reached the rubble tile, start mining if possible
                         if np.all(closest_rubble == unit.pos) or rubble_map[unit.pos[0], unit.pos[1]] != 0:
@@ -491,10 +485,9 @@ class Agent():
                 elif assigned_task == 'kill':
 
                     if len(self.opp_botpos) == 0:
-                        if len(lichen_opposite_map) >0:
-                            opp_lichen_distances = np.mean((lichen_opposite_map - unit.pos) ** 2, 1)
-                            sorted_opp_lichen = [lichen_opposite_map[k] for k in np.argsort(opp_lichen_distances)]
-                            closest_opposite_lichen = sorted_opp_lichen[0]
+                        if len(lichen_opposite_locations) >0:
+                            # compute the distance to each rubble tile from this unit and pick the closest
+                            closest_opposite_lichen, sorted_opp_lichen = self.get_map_distances(lichen_opposite_locations, unit.pos)
 
                             # if we have reached the lichen tile, start mining if possible
                             if np.all(closest_opposite_lichen == unit.pos):
@@ -534,19 +527,30 @@ class Agent():
 
         return actions
 
+    def get_map_distances(self, locations, pos, rubble_map=[] ):
+        if len(rubble_map)>0:
+            rubbles = np.array([rubble_map[pos[0]][pos[1]] for pos in locations])
+        distances = np.mean((locations - pos) ** 2, 1)  # - (rubbles)*10
+        sorted_loc = [locations[k] for k in np.argsort(distances)]
+        closest_loc = sorted_loc[0]
+        return closest_loc, sorted_loc
+
     def get_unit_locations(self, game_state):
         botpos = {}
         botposheavy = {}
         opp_botpos = []
+        opp_botposheavy = {}
         for player in [self.player, self.opp_player]:
             for unit_id, unit in game_state.units[player].items():
 
                 if player == self.player:
                     botpos[unit_id] = str(unit.pos)
+                    if unit.unit_type == "HEAVY":
+                        botposheavy[unit_id] = str(unit.pos)
                 else:
                     opp_botpos.append(unit.pos)
+                    if unit.unit_type == "HEAVY":
+                        opp_botposheavy[unit_id] = str(unit.pos)
 
-                if unit.unit_type == "HEAVY":
-                    botposheavy[unit_id] = str(unit.pos)
-        return botpos, botposheavy, opp_botpos
+        return botpos, botposheavy, opp_botpos, opp_botposheavy
 
