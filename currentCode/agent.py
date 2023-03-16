@@ -292,12 +292,12 @@ class Agent():
                 # at the end, we start water if we can
                 if turn_left<10 and \
                         (factory.cargo.water + math.floor(factory.cargo.ice / 4) - factory.water_cost(game_state)) > turn_left:
-                    prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state),"left=", turn_left)
+                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state),"left=", turn_left)
                     actions[factory_id] = factory.water()
 
                 # anyway, we start water if we have resource to water till the end
                 elif (factory.cargo.water + math.floor(factory.cargo.ice / 4)) > turn_left * max(1,(1 + factory.water_cost(game_state))):
-                    prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state), "left=", turn_left)
+                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state), "left=", turn_left)
                     actions[factory_id] = factory.water()
 
 
@@ -341,7 +341,15 @@ class Agent():
                 opp_pos = np.array(self.opp_botpos).reshape(-1, 2)
                 opponent_unit_distances = np.mean((opp_pos - unit.pos) ** 2, 1)
                 opponent_min_distance = np.min(opponent_unit_distances)
-                opponent_pos_min_distance = opp_pos[np.argmin(opponent_min_distance)]
+                opponent_pos_min_distance = opp_pos[np.argmin(opponent_unit_distances)]
+
+
+
+            if len(self.opp_bbotposheavy) != 0:
+                opp_heavy_pos = np.array(self.opp_bbotposheavy).reshape(-1, 2)
+                opponent_heavy_unit_distances = np.mean((opp_heavy_pos - unit.pos) ** 2, 1)
+                opponent_heavy_min_distance = np.min(opponent_heavy_unit_distances)
+                opponent_heavy_pos_min_distance = opp_heavy_pos[np.argmin(opponent_heavy_unit_distances)]
 
             if len(factory_tiles) > 0:
                 closest_factory_tile = factory_tiles[0]
@@ -388,7 +396,8 @@ class Agent():
                 assigned_task = self.bots_task[unit_id]
                 if len(self.opp_botpos) != 0 and opponent_min_distance == 1 and unit.unit_type == "HEAVY" and assigned_task != "kill":
                     assigned_task = "kill"
-                    prx(PREFIX, 'from', factory_belong, unit.unit_type, 'temporarly tasked as', assigned_task)
+                    prx(PREFIX, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarly tasked as', assigned_task, opponent_pos_min_distance, opponent_min_distance)
+
 
                 #if turn_left<150 and assigned_task != "ore":
                 #    self.bots_task[unit_id] = 'rubble'
@@ -539,7 +548,7 @@ class Agent():
         botpos = {}
         botposheavy = {}
         opp_botpos = []
-        opp_botposheavy = {}
+        opp_botposheavy = []
         for player in [self.player, self.opp_player]:
             for unit_id, unit in game_state.units[player].items():
 
@@ -550,7 +559,7 @@ class Agent():
                 else:
                     opp_botpos.append(unit.pos)
                     if unit.unit_type == "HEAVY":
-                        opp_botposheavy[unit_id] = str(unit.pos)
+                        opp_botposheavy.append(unit.pos)
 
         return botpos, botposheavy, opp_botpos, opp_botposheavy
 
