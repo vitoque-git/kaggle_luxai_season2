@@ -339,15 +339,13 @@ class Agent():
 
             if len(self.opp_botpos) != 0:
                 opp_pos = np.array(self.opp_botpos).reshape(-1, 2)
-                opponent_unit_distances = np.mean((opp_pos - unit.pos) ** 2, 1)
+                opponent_unit_distances = self.get_distance_vector(unit.pos, opp_pos)
                 opponent_min_distance = np.min(opponent_unit_distances)
                 opponent_pos_min_distance = opp_pos[np.argmin(opponent_unit_distances)]
 
-
-
             if len(self.opp_bbotposheavy) != 0:
                 opp_heavy_pos = np.array(self.opp_bbotposheavy).reshape(-1, 2)
-                opponent_heavy_unit_distances = np.mean((opp_heavy_pos - unit.pos) ** 2, 1)
+                opponent_heavy_unit_distances = self.get_distance_vector(unit.pos, opp_heavy_pos)
                 opponent_heavy_min_distance = np.min(opponent_heavy_unit_distances)
                 opponent_heavy_pos_min_distance = opp_heavy_pos[np.argmin(opponent_heavy_unit_distances)]
 
@@ -535,6 +533,9 @@ class Agent():
                     actions[unit_id] = [unit.move(direction, repeat=False)]
 
         return actions
+
+    def get_distance_vector(self, pos, points):
+        return 2 * np.mean(np.abs(points - pos), 1)
 
     def get_map_distances(self, locations, pos, rubble_map=[] ):
         if len(rubble_map)>0:
