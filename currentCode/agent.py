@@ -377,11 +377,11 @@ class Agent():
                     prx(PREFIX, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarly tasked as', assigned_task, opponent_pos_min_distance, opponent_min_distance)
 
 
-                # if turn_left<200 and assigned_task == "ore":
-                #    self.bots_task[unit_id] = 'rubble'
-                #    prx(PREFIX, factory_belong, unit.unit_type, unit.pos, 'permanently tasked from ', assigned_task,
-                #        'to',self.bots_task[unit_id])
-                #    assigned_task = self.bots_task[unit_id]
+                if turn_left<200 and assigned_task == "ore":
+                   self.bots_task[unit_id] = 'rubble'
+                   prx(PREFIX, factory_belong, unit.unit_type, unit.pos, 'permanently tasked from ', assigned_task,
+                       'to',self.bots_task[unit_id])
+                   assigned_task = self.bots_task[unit_id]
 
 
 
