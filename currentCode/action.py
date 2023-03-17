@@ -50,7 +50,13 @@ class Action_Queue():
         self.actions[f.unit_id] = f.water()
 
     def can_dig(self, unit):
-        return unit.power >= unit.dig_cost(self.game_state) + unit.action_queue_cost(self.game_state)
+        if not Queue.is_next_queue_dig(unit):
+            # not already digging action, dig cost + cost action queue cost
+            return unit.power >= (unit.dig_cost(self.game_state) + unit.action_queue_cost(self.game_state))
+        else:
+            # already digging action, only cost for dig
+            return unit.power >= unit.dig_cost(self.game_state)
+
 
     def dig(self, unit):
         if not Queue.is_next_queue_dig(unit):

@@ -16,9 +16,6 @@ class Factory:
     # lichen_tiles: np.ndarray
     env_cfg: EnvConfig
 
-    #vito
-    #has_enough_water: bool = False
-
     def build_heavy_metal_cost(self, game_state):
         unit_cfg = self.env_cfg.ROBOTS["HEAVY"]
         return unit_cfg.METAL_COST
@@ -52,10 +49,6 @@ class Factory:
         return self.cargo.water >= self.water_cost(game_state)
     def water(self):
         return 2
-
-
-    def newTurn(self,turn_left,prx,prefix):
-        pass
 
     @property
     def pos_slice(self):
