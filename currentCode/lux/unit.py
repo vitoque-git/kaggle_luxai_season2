@@ -84,6 +84,11 @@ class Unit:
     def rubble_dig_cost(self):
         return 5 if self.unit_type == "LIGHT" else 100
 
+#THIS LOOKS WRONG 		
+    def can_dig(self, game_state):
+       return self.power > self.action_queue_cost(game_state) + self.dig_cost(game_state) + self.rubble_dig_cost()
+
+
     def __str__(self) -> str:
         out = f"[{self.team_id}] {self.unit_id} {self.unit_type} at {self.pos}"
         return out

@@ -456,7 +456,8 @@ class Agent():
                             move_cost = unit.move_cost(game_state, direction)
                 # RUBBLE
                 elif assigned_task == 'rubble':
-                    if actions.can_dig(unit):
+                    # if actions.can_dig(unit): THIS SEEMS WRONG BUT DECREASE PERFORMANCE
+                    if unit.can_dig(game_state):
 
                         # compute the distance to each rubble tile from this unit and pick the closest
                         closest_rubble, sorted_rubble = self.get_map_distances(rubble_locations, unit.pos)
