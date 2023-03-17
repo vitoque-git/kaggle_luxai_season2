@@ -40,7 +40,6 @@ class Agent():
         self.factory_bots = {}
         self.factory_queue = {}
         self.move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
-        self.early_setup_steps = 0;
 
         self.G = nx.Graph()
 
@@ -185,12 +184,9 @@ class Agent():
         game_state = obs_to_game_state(step, self.env_cfg, obs)
         self.build_path(game_state)
 
-        if self.early_setup_steps == 0:
-            self.early_setup_steps = step
-            prx('Initial step is ', self.early_setup_steps)
+        turn = obs["real_env_steps"]
 
-        turn = step - self.early_setup_steps
-        pr("---------Turn number ", turn)
+        # prx("---------Turn number ", turn)
         t_prefix = "T_" + str(turn)
         turn_left = 1001 - turn
 
