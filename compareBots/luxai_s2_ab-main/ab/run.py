@@ -45,7 +45,7 @@ def run_ab(
     n_jobs: Optional[int] = None,
 ) -> ABResult:
     if n_jobs is None:
-        n_jobs = -1
+        n_jobs = 10
 
     assert rev_a.revision != rev_b.revision
 
