@@ -15,10 +15,14 @@ import networkx as nx
 # do not harvest ice when all cities do not need water
 
 def pr(*args, sep=' ', end='\n', force=False):  # print conditionally
-    if (True or f): # change first parameter to False to disable logging
+    if (True or force): # change first parameter to False to disable logging
         print(*args, sep=sep, file=sys.stderr)
 
 def prx(*args): pr(*args, force=True)
+
+def prc(*args):  # print conditionally
+    if ('unit_26' in args[0]): # change first parameter to False to disable logging
+        pr(*args, force=True)
 
 
 class Agent():
@@ -301,9 +305,11 @@ class Agent():
         ore_locations = ore_locations_all
         rubble_locations = rubble_locations_all
 
+        rubble_and_opposite_lichen_locations = np.vstack((rubble_locations,lichen_opposite_locations))
+
         for unit_id, unit in iter(sorted(units.items())):
 
-            PREFIX = t_prefix+" "+unit_id+ " "+ unit.unit_type
+            PREFIX = t_prefix+" "+unit_id+ " "+ unit.unit_type+"("+str(unit.power)+")"
 
             if unit_id not in self.bots_task.keys():
                 self.bots_task[unit_id] = ''
@@ -371,15 +377,17 @@ class Agent():
                     prx(PREFIX, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarly tasked as', assigned_task, opponent_pos_min_distance, opponent_min_distance)
 
 
-                #if turn_left<150 and assigned_task != "ore":
+                # if turn_left<200 and assigned_task == "ore":
                 #    self.bots_task[unit_id] = 'rubble'
+                #    prx(PREFIX, factory_belong, unit.unit_type, unit.pos, 'permanently tasked from ', assigned_task,
+                #        'to',self.bots_task[unit_id])
                 #    assigned_task = self.bots_task[unit_id]
 
 
 
 
+                prc(PREFIX, unit.pos, 'task=' + assigned_task, unit.cargo)
                 if assigned_task == "ice":
-                    # pr(PREFIX, 'task=' + assigned_task)
 
                     if unit.cargo.ice < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
                             game_state) + unit.def_move_cost() * distance_to_factory:
@@ -433,22 +441,26 @@ class Agent():
                     if unit.can_dig(game_state):
 
                         # compute the distance to each rubble tile from this unit and pick the closest
-                        closest_rubble, sorted_rubble = self.get_map_distances(rubble_locations, unit.pos)
+                        closest_rubble, sorted_rubble = self.get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
 
                         # if we have reached the rubble tile, start mining if possible
                         if np.all(closest_rubble == unit.pos) or rubble_map[unit.pos[0], unit.pos[1]] != 0:
+                            #prc(PREFIX,"can dig, on ruble")
                             if actions.can_dig(unit):
+                                #prc(PREFIX,"dig ",rubble_map[unit.pos[0], unit.pos[1]])
                                 actions.dig(unit)
                         else:
+                            #prc(PREFIX, "can dig, not on ruble, move to next ruble")
                             if len(rubble_locations) != 0:
                                 direction = self.get_direction(unit, closest_rubble, sorted_rubble)
                                 move_cost = unit.move_cost(game_state, direction)
 
                     elif unit.power <= unit.action_queue_cost(game_state) + unit.dig_cost(game_state) + unit.rubble_dig_cost():
-
                         if adjacent_to_factory:
+                            #prc(PREFIX, "cannot dig, adjacent")
                             actions.dropcargo_or_recharge(unit)
                         else:
+                            #prc(PREFIX, "cannot dig, move, home")
                             direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
                             move_cost = unit.move_cost(game_state, direction)
                 elif assigned_task == 'kill':
@@ -487,6 +499,7 @@ class Agent():
                 # check move_cost is not None, meaning that direction is not blocked
                 # check if unit has enough power to move and update the action queue.
                 if move_cost is not None and unit.power >= move_cost + unit.action_queue_cost(game_state):
+                    #prc(PREFIX,'move to ',direction)
                     actions.move(unit,direction)
 
         return actions.actions
