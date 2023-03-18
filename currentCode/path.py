@@ -50,18 +50,21 @@ class Path_Finder():
 
         for x in range(rubbles.shape[0]):
             for y in range(rubbles.shape[1]):
-                G.add_node((x, y), rubble=rubbles[x, y])
+                if (x,y) in prohibited_locations:
+                    #this makes impossible direction to enemy with prohibited_locations
+                    pass
+                else:
+                    G.add_node((x, y), rubble=rubbles[x, y])
 
         # prx("Nodes created.")
 
         deltas = [(1, 0), (-1, 0), (0, 1), (0, -1)]
         for g1 in G.nodes:
-            x1, y1 = g1
+            if not G.has_node(g1):
+                continue
             for delta in deltas:
                 g2 = add_delta((g1, delta))
-                if g2 in prohibited_locations:
-                    G.add_edge(g1, g2, cost=10e6)
-                elif G.has_node(g2) :
+                if G.has_node(g2):
                     G.add_edge(g1, g2, cost=20 + rubbles[g2])
         # prx("Edges created.")
 
@@ -70,9 +73,15 @@ class Path_Finder():
     def get_shortest_path(self, ptA, ptB):
         ptA = (ptA[0], ptA[1])
         ptB = (ptB[0], ptB[1])
-        path = nx.shortest_path(self.G, source=ptA, target=ptB, weight="cost")
+        try:
+            path = nx.shortest_path(self.G, source=ptA, target=ptB, weight="cost")
+        except:
+            return [ptA[0]]
 
         return path;
+
+
+import time
 
 def test():
     print("TEST MODE FOR PATH_FINDER")
@@ -93,8 +102,9 @@ def test():
     # prx('city',pos)
     Path_Finder.expand_point(opp_factories_areas, (16, 21))
     Path_Finder.expand_point(opp_factories_areas, (24, 24))
+    st = time.time()
     pf._build_path(rubbles,opp_factories_areas)
-	
+    print('_build_path Execution time:', -1000*(st-time.time()), 'ms')
 
 
     #random points
@@ -104,7 +114,9 @@ def test():
 
     ptA, ptB = (14, 24), (27, 26)
 
+    st = time.time()
     path = nx.shortest_path(pf.G, source=ptA, target=ptB, weight="cost")
+    print('shortest_path Execution time:', -1000*(st-time.time()), 'ms')
 
     print('from', ptA,'to',ptB)
     print(path)
