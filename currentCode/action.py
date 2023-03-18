@@ -95,7 +95,11 @@ class Action_Queue():
 
     def dropcargo_or_recharge(self, unit: lux.kit.Unit):
         if unit.cargo.ore > 0 and not Queue.is_next_queue_transfer_ore(unit):
-            self.transfer_ore(unit)
+            if unit.power < unit.battery_capacity() * 0.1 and not Queue.is_next_queue_pickup(unit):
+                self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit),
+                                              Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power)]
+            else:
+                self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit)]
         elif unit.cargo.ice > 0 and not Queue.is_next_queue_transfer_ore(unit):
             if unit.power < unit.battery_capacity() * 0.1 and not Queue.is_next_queue_pickup(unit):
                 self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit),
