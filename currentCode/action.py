@@ -34,6 +34,42 @@ class Queue:
     def is_next_queue_dig(unit: lux.kit.Unit):
         return Queue.is_dig(Queue.next_action(unit))
 
+    def is_transfer_ore(a):
+        if a is not None and len(a)>0:
+            return (a[0]==1 and a[2]==1)
+        else:
+            return False
+
+    def is_next_queue_transfer_ore(unit: lux.kit.Unit):
+        return Queue.is_transfer_ore(Queue.next_action(unit))
+
+    def is_transfer_ice(a):
+        if a is not None and len(a)>0:
+            return (a[0]==1 and a[2]==0)
+        else:
+            return False
+
+    def is_next_queue_transfer_ice(unit: lux.kit.Unit):
+        return Queue.is_transfer_ice(Queue.next_action(unit))
+
+    def is_pickup(a):
+        if a is not None and len(a)>0:
+            return (a[0]==2)
+        else:
+            return False
+
+    def is_next_queue_pickup(unit: lux.kit.Unit):
+        return Queue.is_pickup(Queue.next_action(unit))
+
+    def action_pickup_power(unit: lux.kit.Unit):
+        return unit.pickup(4, unit.battery_capacity() - unit.power)
+
+    def action_transfer_ore(unit: lux.kit.Unit):
+        return unit.transfer(0, 1, unit.cargo.ore, repeat=False)
+
+    def action_transfer_ice(unit: lux.kit.Unit):
+        return unit.transfer(0, 0, unit.cargo.ice, repeat=False)
+
 
 class Action_Queue():
     def __init__(self, game_state) -> None:
@@ -57,22 +93,29 @@ class Action_Queue():
             # already digging action, only cost for dig
             return unit.power >= unit.dig_cost(self.game_state)
 
+    def dropcargo_or_recharge(self, unit):
+        if unit.cargo.ore > 0 and not Queue.is_next_queue_transfer_ore(unit):
+            self.transfer_ore(unit)
+        elif unit.cargo.ice > 0 and not Queue.is_next_queue_transfer_ore(unit):
+            self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit)]
+        elif unit.power < unit.battery_capacity() * 0.1 and not Queue.is_next_queue_pickup(unit):
+            self.actions[unit.unit_id] = [Queue.action_pickup_power(unit)]
+
+
 
     def dig(self, unit):
         if not Queue.is_next_queue_dig(unit):
             # only dig if we are not already digging.
-            self.actions[unit.unit_id] = [unit.dig(repeat=True)]
+            self.actions[unit.unit_id] = [unit.dig(repeat=False, n=9999)]
 
-    def dropcargo_or_recharge(self, unit):
-        if unit.cargo.ore > 0:
-            self.actions[unit.unit_id] = [unit.transfer(0, 1, unit.cargo.ore, repeat=False)]
-        elif unit.cargo.ice > 0:
-            self.actions[unit.unit_id] = [unit.transfer(0, 0, unit.cargo.ice, repeat=False)]
-        elif unit.power < unit.battery_capacity() * 0.1:
-            self.actions[unit.unit_id] = [unit.pickup(4, unit.battery_capacity() - unit.power)]
+    def transfer_ice(self, unit):
+        self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit)]
+
+
+
+    def transfer_ore(self, unit):
+        self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit)]
 
     def move(self, unit, direction):
         self.actions[unit.unit_id] = [unit.move(direction, repeat=False)]
 
-    def get_next_action(self, unit):
-        pass
