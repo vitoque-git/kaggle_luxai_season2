@@ -205,7 +205,7 @@ class Agent():
 
         # Build Robots
         factories = game_state.factories[self.player]
-        factory_tiles, factory_units, factory_ids = [], [], []
+        factory_tiles, factory_units, factory_ids, factory_areas = [], [], [], []
 
         for factory_id, factory in factories.items():
 
@@ -261,6 +261,7 @@ class Agent():
                     self.factory_queue[factory_id].append(minbot_task)
 
             factory_tiles += [factory.pos]
+            Path_Finder.expand_point(factory_areas, factory.pos)
             factory_units += [factory]
             factory_ids += [factory_id]
 
@@ -329,7 +330,14 @@ class Agent():
                 opponent_heavy_min_distance = np.min(opponent_heavy_unit_distances)
                 opponent_heavy_pos_min_distance = opp_heavy_pos[np.argmin(opponent_heavy_unit_distances)]
 
+            adjacent_to_factory = False
+            factory_min_distance = 10000
             if len(factory_tiles) > 0:
+                factory_unit_distances = self.get_distance_vector(unit.pos, factory_areas)
+                distance_to_factory = np.min(factory_unit_distances)
+                factory_pos_min_distance = factory_areas[np.argmin(factory_unit_distances)]
+                # prx(PREFIX,unit.pos,'distance', factory_min_distance, factory_pos_min_distance)
+                adjacent_to_factory = distance_to_factory == 0
                 closest_factory_tile = factory_tiles[0]
 
             if unit_id not in self.bot_factory.keys():
@@ -348,9 +356,7 @@ class Agent():
 
             PREFIX = PREFIX + " " + factory_belong
 
-            distance_to_factory = np.mean((np.array(closest_factory_tile) - np.array(unit.pos)) ** 2)
-            adjacent_to_factory = False
-            sorted_factory = [closest_factory_tile]
+            sorted_factory = [factory_pos_min_distance]
 
             if unit.power < unit.action_queue_cost(game_state):
                 continue
@@ -358,12 +364,6 @@ class Agent():
             if len(factory_tiles) > 0:
 
                 move_cost = None
-                try:
-                    adjacent_to_factory = np.mean((np.array(closest_factory_tile) - np.array(unit.pos)) ** 2) <= 1
-                except:
-                    print(closest_factory_tile, unit.pos)
-                    assert False
-
 
                 ## Assigning task for the bot
                 if self.bots_task[unit_id] == '':
@@ -387,8 +387,6 @@ class Agent():
                    assigned_task = self.bots_task[unit_id]
 
 
-
-
                 prc(PREFIX, unit.pos, 'task=' + assigned_task, unit.cargo)
                 if assigned_task == "ice":
 
@@ -403,8 +401,7 @@ class Agent():
                             if actions.can_dig(unit):
                                 actions.dig(unit)
                         else:
-                            direction = self.get_direction(unit, closest_ice, sorted_ice)
-                            move_cost = unit.move_cost(game_state, direction)
+                            direction, move_cost = self.get_direction(game_state, unit, closest_ice, sorted_ice)
 
                     elif unit.cargo.ice >= unit.cargo_space() or unit.power <= unit.action_queue_cost(
                             game_state) + unit.dig_cost(game_state) + unit.def_move_cost() * distance_to_factory:
@@ -412,8 +409,7 @@ class Agent():
                         if adjacent_to_factory:
                             actions.dropcargo_or_recharge(unit)
                         else:
-                            direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
-                            move_cost = unit.move_cost(game_state, direction)
+                            direction, move_cost = self.get_direction(game_state, unit, closest_factory_tile, sorted_factory)
 
                 elif assigned_task == 'ore':
                     if unit.cargo.ore < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
@@ -427,8 +423,7 @@ class Agent():
                             if actions.can_dig(unit):
                                 actions.dig(unit)
                         else:
-                            direction = self.get_direction(unit, closest_ore, sorted_ore)
-                            move_cost = unit.move_cost(game_state, direction)
+                            direction, move_cost = self.get_direction(game_state, unit, closest_ore, sorted_ore)
 
                     elif unit.cargo.ore >= unit.cargo_space() or unit.power <= unit.action_queue_cost(
                             game_state) + unit.dig_cost(game_state) + unit.def_move_cost() * distance_to_factory:
@@ -436,8 +431,7 @@ class Agent():
                         if adjacent_to_factory:
                             actions.dropcargo_or_recharge(unit)
                         else:
-                            direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
-                            move_cost = unit.move_cost(game_state, direction)
+                            direction, move_cost = self.get_direction(game_state, unit, closest_factory_tile, sorted_factory)                      
                 # RUBBLE
                 elif assigned_task == 'rubble':
                     # if actions.can_dig(unit): THIS SEEMS WRONG BUT DECREASE PERFORMANCE
@@ -455,17 +449,14 @@ class Agent():
                         else:
                             #prc(PREFIX, "can dig, not on ruble, move to next ruble")
                             if len(rubble_locations) != 0:
-                                direction = self.get_direction(unit, closest_rubble, sorted_rubble)
-                                move_cost = unit.move_cost(game_state, direction)
+                                direction, move_cost = self.get_direction(game_state, unit, closest_rubble, sorted_rubble)                        
 
                     elif unit.power <= unit.action_queue_cost(game_state) + unit.dig_cost(game_state) + unit.rubble_dig_cost():
+                        #prc(PREFIX, "cannot dig, adjacent")
                         if adjacent_to_factory:
-                            #prc(PREFIX, "cannot dig, adjacent")
                             actions.dropcargo_or_recharge(unit)
                         else:
-                            #prc(PREFIX, "cannot dig, move, home")
-                            direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
-                            move_cost = unit.move_cost(game_state, direction)
+                            direction, move_cost = self.get_direction(game_state, unit, closest_factory_tile, sorted_factory)          
                 elif assigned_task == 'kill':
 
                     if len(self.opp_botpos) == 0:
@@ -479,25 +470,21 @@ class Agent():
                                         unit.action_queue_cost(game_state):
                                     actions.dig(unit)
                             else:
-                                direction = self.get_direction(unit, closest_opposite_lichen, sorted_opp_lichen)
-                                move_cost = unit.move_cost(game_state, direction)
-
+                                direction, move_cost = self.get_direction(game_state, unit, closest_opposite_lichen, sorted_opp_lichen)                      
                     if len(self.opp_botpos) != 0:
                         if opponent_min_distance == 1:
-                            direction = self.get_direction(unit, np.array(opponent_pos_min_distance),
+                            direction, move_cost = self.get_direction(game_state, unit, np.array(opponent_pos_min_distance),
                                                            [np.array(opponent_pos_min_distance)])
-                            move_cost = unit.move_cost(game_state, direction)
+                            
                         else:
                             if unit.power > unit.action_queue_cost(game_state):
-                                direction = self.get_direction(unit, np.array(opponent_pos_min_distance),
+                                direction, move_cost = self.get_direction(game_state, unit, np.array(opponent_pos_min_distance),
                                                                [np.array(opponent_pos_min_distance)])
-                                move_cost = unit.move_cost(game_state, direction)
                             else:
                                 if adjacent_to_factory:
                                     actions.dropcargo_or_recharge(unit)
                                 else:
-                                    direction = self.get_direction(unit, closest_factory_tile, sorted_factory)
-                                    move_cost = unit.move_cost(game_state, direction)
+                                    direction, move_cost = self.get_direction(game_state, unit, closest_factory_tile, sorted_factory)
 
                 # check move_cost is not None, meaning that direction is not blocked
                 # check if unit has enough power to move and update the action queue.
@@ -540,7 +527,7 @@ class Agent():
 
         return botpos, botposheavy, opp_botpos, opp_botposheavy
 
-    def get_direction(self, unit, closest_tile, sorted_tiles):
+    def get_direction(self, game_state, unit, closest_tile, sorted_tiles):
 
         closest_tile = np.array(closest_tile)
         path = self.path_finder.get_shortest_path(unit.pos, closest_tile)
@@ -571,7 +558,7 @@ class Agent():
 
         self.botpos[unit.unit_id] = str(np.array(unit.pos) + move_deltas[direction])
 
-        return direction
+        return direction, unit.move_cost(game_state, direction)
 
 
 
