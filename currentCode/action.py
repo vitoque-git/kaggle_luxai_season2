@@ -61,8 +61,8 @@ class Queue:
     def is_next_queue_pickup(unit: lux.kit.Unit):
         return Queue.is_pickup(Queue.next_action(unit))
 
-    def action_pickup_power(unit: lux.kit.Unit):
-        return unit.pickup(4, unit.battery_capacity() - unit.power)
+    def action_pickup_power(unit: lux.kit.Unit, power):
+        return unit.pickup(4, power)
 
     def action_transfer_ore(unit: lux.kit.Unit):
         return unit.transfer(0, 1, unit.cargo.ore, repeat=False)
@@ -93,13 +93,17 @@ class Action_Queue():
             # already digging action, only cost for dig
             return unit.power >= unit.dig_cost(self.game_state)
 
-    def dropcargo_or_recharge(self, unit):
+    def dropcargo_or_recharge(self, unit: lux.kit.Unit):
         if unit.cargo.ore > 0 and not Queue.is_next_queue_transfer_ore(unit):
             self.transfer_ore(unit)
         elif unit.cargo.ice > 0 and not Queue.is_next_queue_transfer_ore(unit):
-            self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit)]
+            if unit.power < unit.battery_capacity() * 0.1 and not Queue.is_next_queue_pickup(unit):
+                self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit),
+                                          Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power)]
+            else:
+                self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit)]
         elif unit.power < unit.battery_capacity() * 0.1 and not Queue.is_next_queue_pickup(unit):
-            self.actions[unit.unit_id] = [Queue.action_pickup_power(unit)]
+            self.actions[unit.unit_id] = [Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power)]
 
 
 
@@ -110,8 +114,6 @@ class Action_Queue():
 
     def transfer_ice(self, unit):
         self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit)]
-
-
 
     def transfer_ore(self, unit):
         self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit)]
