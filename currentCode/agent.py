@@ -13,6 +13,8 @@ import networkx as nx
 # create robot in the best location (especially first)
 # do not bring ice to city that do not need
 # do not harvest ice when all cities do not need water
+from path import Path_Finder
+
 
 def pr(*args, sep=' ', end='\n', force=False):  # print conditionally
     if (True or force): # change first parameter to False to disable logging
@@ -21,7 +23,7 @@ def pr(*args, sep=' ', end='\n', force=False):  # print conditionally
 def prx(*args): pr(*args, force=True)
 
 def prc(*args):  # print conditionally
-    if ('unit_26' in args[0]): # change first parameter to False to disable logging
+    if (False and 'unit_26' in args[0]):
         pr(*args, force=True)
 
 
@@ -45,6 +47,7 @@ class Agent():
         self.move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
 
         self.G = nx.Graph()
+        self.path_finder = Path_Finder()
 
     def early_setup(self, step: int, obs, remainingOverageTime: int = 60):
         '''
@@ -185,7 +188,7 @@ class Agent():
         '''
 
         game_state = obs_to_game_state(step, self.env_cfg, obs)
-        self.build_path(game_state)
+        self.path_finder.build_path(game_state,self.opp_player)
         actions = Action_Queue(game_state)
         state_obs = obs
 
@@ -537,84 +540,14 @@ class Agent():
 
         return botpos, botposheavy, opp_botpos, opp_botposheavy
 
-
-    def build_path(self,game_state):
-
-        # PIC_SIZE = 1024
-        #
-        # env = LuxAI_S2()
-        # obs = env.reset(seed=22)
-        # img = env.render("rgb_array", width=PIC_SIZE, height=PIC_SIZE)
-        #
-        # plt.figure(figsize=(6, 6))
-        # plt.imshow(img)
-
-        self.G = nx.Graph()
-
-        add_delta = lambda a: tuple(np.array(a[0]) + np.array(a[1]))
-
-        opp_factories = [np.array(f.pos) for _, f in game_state.factories[self.opp_player].items()]
-        opp_factories_areas = []
-        for pos in opp_factories:
-            # prx('city',pos)
-            x=pos[0]
-            y=pos[1]
-            opp_factories_areas.append((x-1,y-1))
-            opp_factories_areas.append((x-1,y  ))
-            opp_factories_areas.append((x-1,y+1))
-            opp_factories_areas.append((x,y-1))
-            opp_factories_areas.append((x,y  ))
-            opp_factories_areas.append((x,y+1))
-            opp_factories_areas.append((x+1,y-1))
-            opp_factories_areas.append((x+1,y  ))
-            opp_factories_areas.append((x+1,y+1))
-
-        rubbles = game_state.board.rubble
-        for x in range(rubbles.shape[0]):
-            for y in range(rubbles.shape[1]):
-                self.G.add_node((x, y), rubble=rubbles[x, y])
-
-        # prx("Nodes created.")
-
-        deltas = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-        for g1 in self.G.nodes:
-            x1, y1 = g1
-            for delta in deltas:
-                g2 = add_delta((g1, delta))
-                if g2 in opp_factories_areas:
-                    self.G.add_edge(g1, g2, cost=10e6)
-                elif self.G.has_node(g2) :
-                    self.G.add_edge(g1, g2, cost=20 + rubbles[g2])
-        # prx("Edges created.")
-
-    def get_shortest_path(self, from_pt, to_pt):
-        # all_pts = [(x, y) for x in range(0, 48) for y in range(0, 48)]
-        # np.random.shuffle(all_pts)
-        # ptA, ptB = all_pts[0], all_pts[1]
-        ptA = (from_pt[0], from_pt[1])
-        ptB = (to_pt[0], to_pt[1])
-        path = nx.shortest_path(self.G, source=ptA, target=ptB, weight="cost")
-        # prx('ptA, Ptb', from_pt, to_pt, "dist",self.get_distance(from_pt, to_pt))
-        # prx('path',path, "dist",len(path)-1)
-        return path;
-        # scale = lambda a: (a + .5) / 48 * PIC_SIZE
-        #
-        # plt.figure(figsize=(6, 6))
-        # cA = plt.Circle((scale(ptA[0]), scale(ptA[1])), scale(0), color="white")
-        # plt.gca().add_patch(cA)
-        # cB = plt.Circle((scale(ptB[0]), scale(ptB[1])), scale(0), color="yellow")
-        # plt.gca().add_patch(cB)
-        # plt.plot([scale(p[0]) for p in path], [scale(p[1]) for p in path], c="lime")
-        #
-        # plt.imshow(img, alpha=0.9)
-
     def get_direction(self, unit, closest_tile, sorted_tiles):
 
         closest_tile = np.array(closest_tile)
-        path = self.get_shortest_path(unit.pos, closest_tile)
+        path = self.path_finder.get_shortest_path(unit.pos, closest_tile)
         direction = 0
         if len(path) > 1:
             direction = direction_to(np.array(unit.pos), path[1])
+            #prx(path)
         k = 0
         all_unit_positions = set(self.botpos.values())
         unit_type = unit.unit_type
