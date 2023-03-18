@@ -1,3 +1,5 @@
+import sys
+
 import networkx as nx
 from luxai_s2.env import LuxAI_S2
 import matplotlib.pyplot as plt
@@ -19,18 +21,21 @@ class Path_Finder():
         opp_factories_areas = []
         for pos in opp_factories:
             # prx('city',pos)
-            x = pos[0]
-            y = pos[1]
-            opp_factories_areas.append((x - 1, y - 1))
-            opp_factories_areas.append((x - 1, y))
-            opp_factories_areas.append((x - 1, y + 1))
-            opp_factories_areas.append((x, y - 1))
-            opp_factories_areas.append((x, y))
-            opp_factories_areas.append((x, y + 1))
-            opp_factories_areas.append((x + 1, y - 1))
-            opp_factories_areas.append((x + 1, y))
-            opp_factories_areas.append((x + 1, y + 1))
+            Path_Finder.expand_point(opp_factories_areas, pos)
         return opp_factories_areas
+
+    def expand_point(opp_factories_areas, pos):
+        x = pos[0]
+        y = pos[1]
+        opp_factories_areas.append((x - 1, y - 1))
+        opp_factories_areas.append((x - 1, y))
+        opp_factories_areas.append((x - 1, y + 1))
+        opp_factories_areas.append((x, y - 1))
+        opp_factories_areas.append((x, y))
+        opp_factories_areas.append((x, y + 1))
+        opp_factories_areas.append((x + 1, y - 1))
+        opp_factories_areas.append((x + 1, y))
+        opp_factories_areas.append((x + 1, y + 1))
 
     def build_path(self,game_state,opp_player):
         opp_factories_areas = self.get_opp_factories_areas(game_state,opp_player)
@@ -39,31 +44,34 @@ class Path_Finder():
 
     def _build_path(self, rubbles, prohibited_locations=[]):
 
-        self.G = nx.Graph()
+        G = nx.Graph()
 
         add_delta = lambda a: tuple(np.array(a[0]) + np.array(a[1]))
 
         for x in range(rubbles.shape[0]):
             for y in range(rubbles.shape[1]):
-                self.G.add_node((x, y), rubble=rubbles[x, y])
+                G.add_node((x, y), rubble=rubbles[x, y])
 
         # prx("Nodes created.")
 
         deltas = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-        for g1 in self.G.nodes:
+        for g1 in G.nodes:
             x1, y1 = g1
             for delta in deltas:
                 g2 = add_delta((g1, delta))
                 if g2 in prohibited_locations:
-                    self.G.add_edge(g1, g2, cost=10e6)
-                elif self.G.has_node(g2) :
-                    self.G.add_edge(g1, g2, cost=20 + rubbles[g2])
+                    G.add_edge(g1, g2, cost=10e6)
+                elif G.has_node(g2) :
+                    G.add_edge(g1, g2, cost=20 + rubbles[g2])
         # prx("Edges created.")
 
-    def get_shortest_path(self, from_pt, to_pt):
-        ptA = (from_pt[0], from_pt[1])
-        ptB = (to_pt[0], to_pt[1])
+        self.G = G
+
+    def get_shortest_path(self, ptA, ptB):
+        ptA = (ptA[0], ptA[1])
+        ptB = (ptB[0], ptB[1])
         path = nx.shortest_path(self.G, source=ptA, target=ptB, weight="cost")
+
         return path;
 
 def test():
@@ -78,18 +86,25 @@ def test():
     # plt.figure(figsize=(6,6))
     # plt.imshow(img)
     # plt.show()
+    pf = Path_Finder()
 
-    PF = Path_Finder()
-    PF._build_path(rubbles)
+    opp_factories_areas = []
+
+    # prx('city',pos)
+    Path_Finder.expand_point(opp_factories_areas, (16, 21))
+    Path_Finder.expand_point(opp_factories_areas, (24, 24))
+    pf._build_path(rubbles,opp_factories_areas)
+	
+
 
     #random points
     all_pts = [(x, y) for x in range(0, 48) for y in range(0, 48)]
     np.random.shuffle(all_pts)
     ptA, ptB = all_pts[0], all_pts[1]
 
-    ptA, ptB = (14, 24), (17, 26)
+    ptA, ptB = (14, 24), (27, 26)
 
-    path = PF.get_shortest_path(ptA,ptA);
+    path = nx.shortest_path(pf.G, source=ptA, target=ptB, weight="cost")
 
     print('from', ptA,'to',ptB)
     print(path)
@@ -97,15 +112,20 @@ def test():
     scale = lambda a: (a + .5) / 48 * PIC_SIZE
 
     plt.figure(figsize=(6, 6))
+
+    plt.plot([scale(p[0]) for p in path], [scale(p[1]) for p in path], c="lime")
+    plt.plot([scale(p[0]) for p in path], [scale(p[1]) for p in path], c="lime")
     cA = plt.Circle((scale(ptA[0]), scale(ptA[1])), scale(0), color="white")
     plt.gca().add_patch(cA)
     cB = plt.Circle((scale(ptB[0]), scale(ptB[1])), scale(0), color="red")
     plt.gca().add_patch(cB)
-    plt.plot([scale(p[0]) for p in path], [scale(p[1]) for p in path], c="lime")
+    for l in opp_factories_areas:
+        cB = plt.Circle((scale(l[0]), scale(l[1])), scale(0), color="blue")
+        plt.gca().add_patch(cB)
 
     plt.imshow(img, alpha=0.9)
     plt.show()
 
     print("Finished")
 
-test()
+# test()
