@@ -50,6 +50,9 @@ class Factory:
     def water(self):
         return 2
 
+    def pos_location(self):
+        return (self.pos[0], self.pos[1])
+
     @property
     def pos_slice(self):
         return slice(self.pos[0] - 1, self.pos[0] + 2), slice(self.pos[1] - 1, self.pos[1] + 2)

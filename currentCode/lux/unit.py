@@ -84,6 +84,9 @@ class Unit:
     def rubble_dig_cost(self):
         return 5 if self.unit_type == "LIGHT" else 100
 
+    def pos_location(self):
+        return (self.pos[0],self.pos[1])
+
 #THIS LOOKS WRONG 		
     def can_dig(self, game_state):
        return self.power > self.action_queue_cost(game_state) + self.dig_cost(game_state) + self.rubble_dig_cost()
