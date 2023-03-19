@@ -368,7 +368,7 @@ class Agent():
 
 
             # UNIT TASK DECISION
-            if unit.power < unit.action_queue_cost(game_state):
+            if unit.power < unit.action_queue_cost():
                 continue
 
             if len(factory_tiles) > 0:
@@ -412,9 +412,11 @@ class Agent():
 
                 prc(PREFIX, unit.pos, 'task=' + assigned_task, unit.cargo)
                 if assigned_task == "ice":
-
-                    if unit.cargo.ice < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
-                            game_state) + unit.def_move_cost() * distance_to_factory:
+                    cost_home = self.get_cost_to(game_state,unit,turn,adjactent_position_to_avoid,closest_factory_tile)
+                    # if unit.cargo.ice < unit.cargo_space() \
+                    #         and unit.power > unit.action_queue_cost() + Queue.real_cost_dig(unit) + cost_home:
+                    if unit.cargo.ice < unit.cargo_space() and unit.power > unit.action_queue_cost() + unit.dig_cost(
+                            ) + unit.def_move_cost() * distance_to_factory:
 
                         # get closest ice
                         closest_ice, sorted_ice = self.get_map_distances(ice_locations, unit.pos)
@@ -434,8 +436,7 @@ class Agent():
                                     self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
                                     continue
 
-                    elif unit.cargo.ice >= unit.cargo_space() or unit.power <= unit.action_queue_cost(
-                            game_state) + unit.dig_cost(game_state) + unit.def_move_cost() * distance_to_factory:
+                    elif unit.cargo.ice >= unit.cargo_space() or unit.power <= unit.action_queue_cost() + unit.dig_cost() + unit.def_move_cost() * distance_to_factory:
 
                         if adjacent_to_factory:
                             actions.dropcargo_or_recharge(unit)
@@ -443,9 +444,7 @@ class Agent():
                             direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, sorted_factory)
 
                 elif assigned_task == 'ore':
-                    if unit.cargo.ore < unit.cargo_space() and unit.power > unit.action_queue_cost(game_state) + unit.dig_cost(
-                            game_state) + unit.def_move_cost() * distance_to_factory:
-
+                    if unit.cargo.ore < unit.cargo_space() and unit.power > unit.action_queue_cost() + unit.dig_cost() + unit.def_move_cost() * distance_to_factory:
                         # get closest ore
                         closest_ore, sorted_ore = self.get_map_distances(ore_locations, unit.pos)
 
@@ -456,9 +455,7 @@ class Agent():
                         else:
                             direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_ore, sorted_ore)
 
-                    elif unit.cargo.ore >= unit.cargo_space() or unit.power <= unit.action_queue_cost(
-                            game_state) + unit.dig_cost(game_state) + unit.def_move_cost() * distance_to_factory:
-
+                    elif unit.cargo.ore >= unit.cargo_space() or unit.power <= unit.action_queue_cost() + unit.dig_cost() + unit.def_move_cost() * distance_to_factory:
                         if adjacent_to_factory:
                             actions.dropcargo_or_recharge(unit)
                         else:
@@ -482,7 +479,7 @@ class Agent():
                             if len(rubble_locations) != 0:
                                 direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_rubble, sorted_rubble)                        
 
-                    elif unit.power <= unit.action_queue_cost(game_state) + unit.dig_cost(game_state) + unit.rubble_dig_cost():
+                    elif unit.power <= unit.action_queue_cost() + unit.dig_cost() + unit.rubble_dig_cost():
                         #prc(PREFIX, "cannot dig, adjacent")
                         if adjacent_to_factory:
                             actions.dropcargo_or_recharge(unit)
@@ -497,8 +494,8 @@ class Agent():
 
                             # if we have reached the lichen tile, start mining if possible
                             if np.all(closest_opposite_lichen == unit.pos):
-                                if unit.power >= unit.dig_cost(game_state) + \
-                                        unit.action_queue_cost(game_state):
+                                if unit.power >= unit.dig_cost() + \
+                                        unit.action_queue_cost():
                                     actions.dig(unit)
                             else:
                                 direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_opposite_lichen, sorted_opp_lichen)
@@ -508,7 +505,7 @@ class Agent():
                                                            [np.array(opponent_pos_min_distance)])
                             
                         else:
-                            if unit.power > unit.action_queue_cost(game_state):
+                            if unit.power > unit.action_queue_cost():
                                 direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,np.array(opponent_pos_min_distance),
                                                                [np.array(opponent_pos_min_distance)])
                             else:
@@ -529,7 +526,7 @@ class Agent():
 
                 # check move_cost is not None, meaning that direction is not blocked
                 # check if unit has enough power to move and update the action queue.
-                if move_cost is not None and direction != 0 and unit.power >= move_cost + unit.action_queue_cost(game_state):
+                if move_cost is not None and direction != 0 and unit.power >= move_cost + unit.action_queue_cost():
 
                     actions.move(unit,direction)
                     # new position
@@ -620,9 +617,8 @@ class Agent():
     def get_complete_path(self, game_state, unit, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
 
         destination = np.array(destination)
-        shortest_path = self.path_finder.get_shortest_path(unit.pos, destination,
+        path = self.path_finder.get_shortest_path(unit.pos, destination,
                                                            points_to_exclude=adjactent_position_to_avoid)
-        path = shortest_path
         directions, opposite_directions = [], []
         cost_to, cost_from = 0, 0
         new_pos = unit.pos_location()
@@ -668,7 +664,7 @@ class Agent():
 
     def get_actions_sequence(self, game_state, unit, turn, directions, opposite_directions, cost_to, cost_from, ore=False, ice=False, PREFIX=None):
         DIG_COST = unit.unit_cfg.DIG_COST
-        ACTION_QUEUE_COST = unit.action_queue_cost(game_state)
+        ACTION_QUEUE_COST = unit.action_queue_cost()
         CHARGE = unit.charge_per_turn()
 
         unit_actions = []
@@ -732,6 +728,28 @@ class Agent():
         # and recharge
         unit_actions.append(Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power))
         return unit_actions, number_digs
+
+    def get_cost_to(self, game_state, unit,turn, adjactent_position_to_avoid, destination, PREFIX=None):
+
+        destination = np.array(destination)
+        path = self.path_finder.get_shortest_path(unit.pos, destination,
+                                                           points_to_exclude=adjactent_position_to_avoid)
+
+        if len(path)>1:
+            cost_to = 0;
+            for idx, p in enumerate(path):
+                cost = unit.move_cost_to(game_state, p)
+                if idx <= len(path) - 1:
+                    cost_to += cost
+
+            # remove charge
+            for d in range(turn, len(path)-1):
+                if is_day(d):
+                    cost_to = cost_to - unit.charge_per_turn()
+
+        else:
+            return 10e6
+
 
 
     def get_random_direction(self, unit, PREFIX=None):

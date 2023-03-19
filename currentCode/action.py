@@ -70,6 +70,11 @@ class Queue:
     def action_transfer_ice(unit: lux.kit.Unit):
         return unit.transfer(0, 0, unit.cargo.ice, repeat=False)
 
+    def real_cost_dig(unit: lux.kit.Unit):
+        if not Queue.is_next_queue_dig(unit):
+            return unit.action_queue_cost() + unit.dig_cost()
+        else:
+            return unit.dig_cost()
 
 class Action_Queue():
     def __init__(self, game_state) -> None:
@@ -88,10 +93,10 @@ class Action_Queue():
     def can_dig(self, unit):
         if not Queue.is_next_queue_dig(unit):
             # not already digging action, dig cost + cost action queue cost
-            return unit.power >= (unit.dig_cost(self.game_state) + unit.action_queue_cost(self.game_state))
+            return unit.power >= (unit.dig_cost() + unit.action_queue_cost())
         else:
             # already digging action, only cost for dig
-            return unit.power >= unit.dig_cost(self.game_state)
+            return unit.power >= unit.dig_cost()
 
     def dropcargo_or_recharge(self, unit: lux.kit.Unit):
         if unit.cargo.ore > 0 and not Queue.is_next_queue_transfer_ore(unit):

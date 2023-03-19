@@ -29,7 +29,7 @@ class Unit:
     def charge_per_turn(self):
         return self.env_cfg.ROBOTS[self.unit_type].CHARGE;
 
-    def action_queue_cost(self, game_state):
+    def action_queue_cost(self):
         cost = self.env_cfg.ROBOTS[self.unit_type].ACTION_QUEUE_POWER_COST
         return cost
 
@@ -65,7 +65,7 @@ class Unit:
         assert pickup_resource < 5 and pickup_resource >= 0
         return np.array([2, 0, pickup_resource, pickup_amount, repeat, n])
     
-    def dig_cost(self, game_state):
+    def dig_cost(self):
         return self.unit_cfg.DIG_COST
     def dig(self, repeat=0, n=1):
         return np.array([3, 0, 0, 0, repeat, n])
@@ -95,7 +95,7 @@ class Unit:
 
 #THIS LOOKS WRONG 		
     def can_dig(self, game_state):
-       return self.power > self.action_queue_cost(game_state) + self.dig_cost(game_state) + self.rubble_dig_cost()
+       return self.power > self.action_queue_cost() + self.dig_cost() + self.rubble_dig_cost()
 
 
     def __str__(self) -> str:
