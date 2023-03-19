@@ -342,10 +342,14 @@ class Agent():
             if len(factory_tiles) > 0:
                 factory_unit_distances = self.get_distance_vector(unit.pos, factory_areas)
                 distance_to_factory = np.min(factory_unit_distances)
-                factory_pos_min_distance = factory_areas[np.argmin(factory_unit_distances)]
-                # prx(PREFIX,unit.pos,'distance', factory_min_distance, factory_pos_min_distance)
+                closest_factory_area = factory_areas[np.argmin(factory_unit_distances)]
                 adjacent_to_factory = distance_to_factory == 0
-                closest_factory_tile = factory_tiles[0]
+                # prx(t_prefix,'-----------------------')
+                # prx(t_prefix,'factory_areas',factory_areas)
+                # prx(t_prefix,'factory_unit_distances',factory_unit_distances)
+                # prx(t_prefix,'distance_to_factory',distance_to_factory)
+                # prx(t_prefix,'closest_factory_area',closest_factory_area)
+                # prx(t_prefix,'closest_factory_area',closest_factory_area)
 
             if unit_id not in self.bot_factory.keys():
                 factory_distances = self.get_distance_vector(unit.pos,factory_tiles)
@@ -362,10 +366,6 @@ class Agent():
             factory_belong = self.bot_factory[unit_id]
 
             PREFIX = PREFIX + " " + factory_belong
-
-            sorted_factory = [factory_pos_min_distance]
-
-
 
             # UNIT TASK DECISION
             if unit.power < unit.action_queue_cost():
@@ -398,7 +398,7 @@ class Agent():
 
                 if turn_left<200 and assigned_task == "ore":
                    self.bots_task[unit_id] = 'rubble'
-                   prx(PREFIX, factory_belong, unit.unit_type, unit.pos, 'permanently tasked from ', assigned_task,
+                   prx(PREFIX, factory_belong, unit.unit_type, unit.pos, 'permanently tasked from', assigned_task,
                        'to',self.bots_task[unit_id])
                    assigned_task = self.bots_task[unit_id]
 
@@ -410,14 +410,20 @@ class Agent():
                     # if len(adjactent_position_to_avoid)>0:
                     #     prx(PREFIX," need to avoid first moves to ", adjactent_position_to_avoid)
 
-                prc(PREFIX, unit.pos, 'task=' + assigned_task, unit.cargo)
+                # prc(PREFIX, unit.pos, 'task=' + assigned_task, unit.cargo)
                 if assigned_task == "ice":
-                    cost_home = self.get_cost_to(game_state,unit,turn,adjactent_position_to_avoid,closest_factory_tile)
-                    # if unit.cargo.ice < unit.cargo_space() \
-                    #         and unit.power > unit.action_queue_cost() + Queue.real_cost_dig(unit) + cost_home:
-                    if unit.cargo.ice < unit.cargo_space() and unit.power > unit.action_queue_cost() + unit.dig_cost(
-                            ) + unit.def_move_cost() * distance_to_factory:
+                    cost_home = self.get_cost_to(game_state,unit,turn,adjactent_position_to_avoid,closest_factory_area)
+                    recharge_power = if_is_day(turn+1,unit.charge_per_turn(),0)
+                    # prx(PREFIX, 'cost_home',cost_home, unit.pos, closest_factory_area, 'distance ',distance_to_factory)
+                    # prx(PREFIX, 'nit.power + recharge_power',unit.power + recharge_power)
+                    # prx(PREFIX, 'Queue.real_cost_dig(unit)',Queue.real_cost_dig(unit))
+                    # prx(PREFIX, ' 1=== ',unit.cargo.ice < unit.cargo_space())
+                    # prx(PREFIX, ' 2=== ', unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home)
+                    # if turn == 49: a=5/.0
 
+                    if unit.cargo.ice < unit.cargo_space() \
+                        and unit.power +recharge_power > Queue.real_cost_dig(unit) + cost_home:
+ 
                         # get closest ice
                         closest_ice, sorted_ice = self.get_map_distances(ice_locations, unit.pos)
 
@@ -441,7 +447,7 @@ class Agent():
                         if adjacent_to_factory:
                             actions.dropcargo_or_recharge(unit)
                         else:
-                            direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, sorted_factory)
+                            direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, [closest_factory_area])
 
                 elif assigned_task == 'ore':
                     if unit.cargo.ore < unit.cargo_space() and unit.power > unit.action_queue_cost() + unit.dig_cost() + unit.def_move_cost() * distance_to_factory:
@@ -459,7 +465,7 @@ class Agent():
                         if adjacent_to_factory:
                             actions.dropcargo_or_recharge(unit)
                         else:
-                            direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, sorted_factory)                      
+                            direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, [closest_factory_area])                      
                 # RUBBLE
                 elif assigned_task == 'rubble':
                     # if actions.can_dig(unit): THIS SEEMS WRONG BUT DECREASE PERFORMANCE
@@ -484,7 +490,7 @@ class Agent():
                         if adjacent_to_factory:
                             actions.dropcargo_or_recharge(unit)
                         else:
-                            direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, sorted_factory)          
+                            direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, [closest_factory_area])          
                 elif assigned_task == 'kill':
 
                     if len(self.opp_botpos) == 0:
@@ -513,7 +519,7 @@ class Agent():
                                     actions.dropcargo_or_recharge(unit)
                                     direction=0
                                 else:
-                                    direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, sorted_factory)
+                                    direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, [closest_factory_area])
                         prc(PREFIX,'kill',opponent_pos_min_distance,'d=',direction,'cost=',move_cost)
 
 
@@ -690,21 +696,24 @@ class Agent():
 
         # sequence to dig
         number_digs_at_least = ( power_at_start_digging - cost_from) // DIG_COST
-        # prx(PREFIX, "cost to", cost_to)
+        # prx(PREFIX, "unit.power",unit.power,"cost to", cost_to, "cost from", cost_from, 'power_at_start_digging',power_at_start_digging)
         # prx(PREFIX, 'distance',len(directions), '(', power_at_start_digging, " - ", cost_from, ") //", DIG_COST, '=', number_digs_at_least)
 
         #we check if we can do more...
+        new_number_digs = number_digs_at_least
         while(True):
+            new_number_digs = new_number_digs + 1
             extra_day_sun = 0
             turn_start_digging = turn_at_digging + 1
-            for d in range(turn_start_digging, turn_start_digging + 1 + number_digs_at_least + len(opposite_directions)):
+            for d in range(turn_start_digging, turn_start_digging + new_number_digs + len(opposite_directions) - 1):
                 if is_day(d):
+                    # prx(PREFIX, 'is day', d)
                     extra_day_sun += 1
-            new_number_digs_at_least = (power_at_start_digging - cost_from + (extra_day_sun * CHARGE)) // DIG_COST
-            # prx(PREFIX, 'using extra day ', extra_day_sun, 'new_number_digs_at_least',new_number_digs_at_least)
-            if new_number_digs_at_least > number_digs_at_least:
-                # prx(PREFIX, 'new_number_digs_at_least recalculated',new_number_digs_at_least, 'using extra day ',extra_day_sun )
-                number_digs_at_least = new_number_digs_at_least
+
+            if (power_at_start_digging + (extra_day_sun * CHARGE) - (new_number_digs * DIG_COST))  >= cost_from:
+                # prx(PREFIX, 'using extra day ', extra_day_sun, 'new_number_digs_at_least', new_number_digs)
+                prx(PREFIX, power_at_start_digging + (extra_day_sun * CHARGE) - (new_number_digs * DIG_COST), cost_from)
+                number_digs_at_least = new_number_digs
             else:
                 break
 
@@ -712,6 +721,8 @@ class Agent():
         # prx(PREFIX, 'number_digs=', number_digs)
         if number_digs <= 0:
             return unit_actions, number_digs
+
+        # if turn == 48: 5/0.
 
         unit_actions.append(unit.dig(n=number_digs))
 
@@ -735,17 +746,23 @@ class Agent():
         path = self.path_finder.get_shortest_path(unit.pos, destination,
                                                            points_to_exclude=adjactent_position_to_avoid)
 
-        if len(path)>1:
+        if len(path) ==1:
+            return 0
+        elif len(path)>1:
+            # prx(PREFIX, path)
             cost_to = 0;
             for idx, p in enumerate(path):
                 cost = unit.move_cost_to(game_state, p)
-                if idx <= len(path) - 1:
+                if idx >= 1:
+                    # prx(PREFIX, cost_to, 'adding cost', cost)
                     cost_to += cost
 
             # remove charge
             for d in range(turn, len(path)-1):
                 if is_day(d):
+                    # prx(PREFIX, cost_to, 'decreasing light', unit.charge_per_turn())
                     cost_to = cost_to - unit.charge_per_turn()
+            return cost_to
 
         else:
             return 10e6

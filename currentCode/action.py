@@ -40,8 +40,17 @@ class Queue:
         else:
             return False
 
+    def is_move(a, direction):
+        if a is not None and len(a)>0:
+            return (a[0]==0 and a[1]==direction)
+        else:
+            return False
+
     def is_next_queue_transfer_ore(unit: lux.kit.Unit):
         return Queue.is_transfer_ore(Queue.next_action(unit))
+
+    def is_next_queue_move(unit: lux.kit.Unit, direction):
+        return Queue.is_move(Queue.next_action(unit), direction)
 
     def is_transfer_ice(a):
         if a is not None and len(a)>0:
@@ -75,6 +84,7 @@ class Queue:
             return unit.action_queue_cost() + unit.dig_cost()
         else:
             return unit.dig_cost()
+
 
 class Action_Queue():
     def __init__(self, game_state) -> None:
@@ -129,6 +139,7 @@ class Action_Queue():
         self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit)]
 
     def move(self, unit, direction):
-        self.actions[unit.unit_id] = [unit.move(direction, repeat=False)]
+        if not Queue.is_next_queue_move(unit,direction):
+            self.actions[unit.unit_id] = [unit.move(direction, repeat=False)]
 
 
