@@ -424,15 +424,15 @@ class Agent():
                             if actions.can_dig(unit):
                                 actions.dig(unit)
                         else:
-                                direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_ice, sorted_ice)
-                                # direction, unit_actions, new_pos = self.get_complete_path_ice(game_state, unit, turn,
-                                #                                                               adjactent_position_to_avoid,
-                                #                                                               closest_ice, sorted_ice,
-                                #                                                               PREFIX)
-                                # if direction != 0:
-                                #     actions.set_new_actions(unit, unit_actions)
-                                #     self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
-                                #     continue
+                                # direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_ice, sorted_ice)
+                                direction, unit_actions, new_pos = self.get_complete_path_ice(game_state, unit, turn,
+                                                                                              adjactent_position_to_avoid,
+                                                                                              closest_ice, sorted_ice,
+                                                                                              PREFIX)
+                                if direction != 0:
+                                    actions.set_new_actions(unit, unit_actions)
+                                    self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
+                                    continue
 
                     elif unit.cargo.ice >= unit.cargo_space() or unit.power <= unit.action_queue_cost(
                             game_state) + unit.dig_cost(game_state) + unit.def_move_cost() * distance_to_factory:
@@ -708,10 +708,8 @@ class Agent():
         # sequence to dig
         power_at_start_digging = unit.power - ACTION_QUEUE_COST - cost_to
         number_digs_at_least = ( power_at_start_digging - cost_from) // DIG_COST
-        prx(PREFIX, "cost to", cost_to)
-        prx(PREFIX, 'distance',len(directions), '(', power_at_start_digging, " - ", cost_from, ") //", DIG_COST, '=', number_digs_at_least)
-
-
+        # prx(PREFIX, "cost to", cost_to)
+        # prx(PREFIX, 'distance',len(directions), '(', power_at_start_digging, " - ", cost_from, ") //", DIG_COST, '=', number_digs_at_least)
 
         #we check if we can do more...
         while(True):
@@ -720,15 +718,15 @@ class Agent():
                 if is_day(d):
                     extra_day_sun += 1
             new_number_digs_at_least = (power_at_start_digging - cost_from + (extra_day_sun * CHARGE)) // DIG_COST
-            prx(PREFIX, 'using extra day ', extra_day_sun, 'new_number_digs_at_least',new_number_digs_at_least)
+            # prx(PREFIX, 'using extra day ', extra_day_sun, 'new_number_digs_at_least',new_number_digs_at_least)
             if new_number_digs_at_least > number_digs_at_least:
-                prx(PREFIX, 'new_number_digs_at_least recalculated',new_number_digs_at_least, 'using extra day ',extra_day_sun )
+                # prx(PREFIX, 'new_number_digs_at_least recalculated',new_number_digs_at_least, 'using extra day ',extra_day_sun )
                 number_digs_at_least = new_number_digs_at_least
             else:
                 break
 
         number_digs = number_digs_at_least
-        prx(PREFIX, 'number_digs=', number_digs)
+        # prx(PREFIX, 'number_digs=', number_digs)
         unit_actions.append(unit.dig(n=number_digs))
 
         # sequence to return
