@@ -124,7 +124,10 @@ class Action_Queue():
         elif unit.power < unit.battery_capacity() * 0.1 and not Queue.is_next_queue_pickup(unit):
             self.actions[unit.unit_id] = [Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power)]
 
-    def set_new_actions(self, unit, unit_actions):
+    def set_new_actions(self, unit, unit_actions,PREFIX):
+        if len(unit_actions)>20:
+            prx(PREFIX,"Actions too long",len(unit_actions),"truncating")
+            unit_actions = unit_actions[:20]
         self.actions[unit.unit_id] = unit_actions
 
     def dig(self, unit):

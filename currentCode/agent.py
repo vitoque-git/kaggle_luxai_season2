@@ -438,7 +438,7 @@ class Agent():
                                                                                               closest_ice, sorted_ice,
                                                                                               PREFIX)
                                 if direction != 0 and num_digs>0:
-                                    actions.set_new_actions(unit, unit_actions)
+                                    actions.set_new_actions(unit, unit_actions,PREFIX)
                                     self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
                                     continue
 
@@ -450,7 +450,19 @@ class Agent():
                             direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, [closest_factory_area])
 
                 elif assigned_task == 'ore':
-                    if unit.cargo.ore < unit.cargo_space() and unit.power > unit.action_queue_cost() + unit.dig_cost() + unit.def_move_cost() * distance_to_factory:
+                    cost_home = self.get_cost_to(game_state, unit, turn, adjactent_position_to_avoid,
+                                                 closest_factory_area)
+                    recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
+                    # prx(PREFIX, 'cost_home',cost_home, unit.pos, closest_factory_area, 'distance ',distance_to_factory)
+                    # prx(PREFIX, 'nit.power + recharge_power',unit.power + recharge_power)
+                    # prx(PREFIX, 'Queue.real_cost_dig(unit)',Queue.real_cost_dig(unit))
+                    # prx(PREFIX, ' 1=== ',unit.cargo.ore < unit.cargo_space())
+                    # prx(PREFIX, ' 2=== ', unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home)
+                    # if turn == 49: a=5/.0
+
+                    if unit.cargo.ore < unit.cargo_space() \
+                            and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home:
+
                         # get closest ore
                         closest_ore, sorted_ore = self.get_map_distances(ore_locations, unit.pos)
 
@@ -459,7 +471,17 @@ class Agent():
                             if actions.can_dig(unit):
                                 actions.dig(unit)
                         else:
-                            direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_ore, sorted_ore)
+                            # direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_ore, sorted_ore)
+                            direction, unit_actions, new_pos, num_digs = self.get_complete_path_ore(game_state, unit,
+                                                                                                    turn,
+                                                                                                    adjactent_position_to_avoid,
+                                                                                                    closest_ore,
+                                                                                                    sorted_ore,
+                                                                                                    PREFIX)
+                            if direction != 0 and num_digs > 0:
+                                actions.set_new_actions(unit, unit_actions,PREFIX)
+                                self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
+                                continue
 
                     elif unit.cargo.ore >= unit.cargo_space() or unit.power <= unit.action_queue_cost() + unit.dig_cost() + unit.def_move_cost() * distance_to_factory:
                         if adjacent_to_factory:
@@ -608,19 +630,19 @@ class Agent():
 
 
     def get_complete_path_ice(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
-        return self._get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=PREFIX,ice=True)
+        return self._get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=PREFIX,drop_ice=True)
 
     def get_complete_path_ore(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
-        return self._get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles,PREFIX=PREFIX, ore=True)
+        return self._get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles,PREFIX=PREFIX, drop_ore=True)
 
-    def _get_complete_path(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None, ice=False, ore=False):
+    def _get_complete_path(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None, drop_ice=False, drop_ore=False):
         directions, opposite_directions, cost_to, cost_from, new_pos = self.get_complete_path(game_state, unit, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX)
 
 
         # set first direction
         if len(directions) >0:
             unit_actions, number_digs = self.get_actions_sequence(game_state, unit, turn, directions, opposite_directions, cost_to,
-                                                     cost_from, ice=True, PREFIX=PREFIX)
+                                                                  cost_from, drop_ice=drop_ice, drop_ore=drop_ore, PREFIX=PREFIX)
             direction = directions[0]
             return direction, unit_actions, new_pos, number_digs
         else:
@@ -674,7 +696,7 @@ class Agent():
 
         return directions, opposite_directions, cost_to, cost_from, new_pos
 
-    def get_actions_sequence(self, game_state, unit, turn, directions, opposite_directions, cost_to, cost_from, ore=False, ice=False, PREFIX=None):
+    def get_actions_sequence(self, game_state, unit, turn, directions, opposite_directions, cost_to, cost_from, drop_ore=False, drop_ice=False, PREFIX=None):
         DIG_COST = unit.unit_cfg.DIG_COST
         ACTION_QUEUE_COST = unit.action_queue_cost()
         CHARGE = unit.charge_per_turn()
@@ -730,16 +752,16 @@ class Agent():
 
         # if turn == 48: 5/0.
 
-        unit_actions.append(unit.dig(n=number_digs))
+        unit_actions.append(unit.dig(n=max(number_digs,50)))
 
         # sequence to return
         for d in opposite_directions:
             unit_actions.append(unit.move(d))
 
         # dropcargo
-        if ore:
+        if drop_ore:
             unit_actions.append(Queue.action_transfer_ore(unit))
-        if ice:
+        if drop_ice:
             unit_actions.append(Queue.action_transfer_ice(unit))
 
         # and recharge
