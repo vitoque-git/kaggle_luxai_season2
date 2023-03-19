@@ -26,3 +26,9 @@ def opposite_direction(direction):
 
 def is_day(turn):
     return turn % 50 <= 30
+
+def if_is_day(turn, value_if_day, value_if_night):
+    if is_day(turn):
+        return value_if_day
+    else:
+        return value_if_night

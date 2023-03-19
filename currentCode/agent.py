@@ -666,7 +666,6 @@ class Agent():
 
         return directions, opposite_directions, cost_to, cost_from, new_pos
 
-
     def get_actions_sequence(self, game_state, unit, turn, directions, opposite_directions, cost_to, cost_from, ore=False, ice=False, PREFIX=None):
         DIG_COST = unit.unit_cfg.DIG_COST
         ACTION_QUEUE_COST = unit.action_queue_cost(game_state)
