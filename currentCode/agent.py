@@ -425,11 +425,11 @@ class Agent():
                                 actions.dig(unit)
                         else:
                                 # direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_ice, sorted_ice)
-                                direction, unit_actions, new_pos = self.get_complete_path_ice(game_state, unit, turn,
+                                direction, unit_actions, new_pos, num_digs = self.get_complete_path_ice(game_state, unit, turn,
                                                                                               adjactent_position_to_avoid,
                                                                                               closest_ice, sorted_ice,
                                                                                               PREFIX)
-                                if direction != 0:
+                                if direction != 0 and num_digs>0:
                                     actions.set_new_actions(unit, unit_actions)
                                     self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
                                     continue
@@ -610,12 +610,12 @@ class Agent():
 
         # set first direction
         if len(directions) >0:
-            unit_actions = self.get_actions_sequence(game_state, unit, turn, directions, opposite_directions, cost_to,
+            unit_actions, number_digs = self.get_actions_sequence(game_state, unit, turn, directions, opposite_directions, cost_to,
                                                      cost_from, ice=True, PREFIX=PREFIX)
             direction = directions[0]
-            return direction, unit_actions, new_pos
+            return direction, unit_actions, new_pos, number_digs
         else:
-            return 0, [], new_pos
+            return 0, [], new_pos, 0
 
     def get_complete_path(self, game_state, unit, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
 
@@ -625,7 +625,7 @@ class Agent():
         path = shortest_path
         directions, opposite_directions = [], []
         cost_to, cost_from = 0, 0
-        new_pos = None
+        new_pos = unit.pos_location()
 
         # https://stackoverflow.com/questions/522563/accessing-the-index-in-for-loops
         # >> > l = [1, 2, 3, 4, 5, 6]
@@ -667,20 +667,6 @@ class Agent():
         return directions, opposite_directions, cost_to, cost_from, new_pos
 
 
-
-    def get_random_direction(self, unit, PREFIX=None):
-
-        move_deltas_real = [(1,(0, -1)), (2,(1, 0)), (3,(0, 1)), (4,(-1, 0))]
-        for direction,delta in move_deltas_real:
-            new_pos = np.array(unit.pos) + delta
-            # prc(PREFIX,"try random ",new_pos)
-            if not (new_pos[0],new_pos[1]) in self.unit_next_positions.values():
-                return direction
-
-        return 0
-
-
-
     def get_actions_sequence(self, game_state, unit, turn, directions, opposite_directions, cost_to, cost_from, ore=False, ice=False, PREFIX=None):
         DIG_COST = unit.unit_cfg.DIG_COST
         ACTION_QUEUE_COST = unit.action_queue_cost(game_state)
@@ -700,13 +686,14 @@ class Agent():
         for d in directions:
             unit_actions.append(unit.move(d))
 
-        if unit.power < cost_to + DIG_COST:
+        power_at_start_digging = unit.power - ACTION_QUEUE_COST - cost_to
+        # prx(PREFIX, "1 power_at_start_digging", power_at_start_digging, "DIG_COST", DIG_COST)
+        if power_at_start_digging < DIG_COST:
             # if we have not to go back and forth, just go there and dig undefinetely
             unit_actions.append(unit.dig(n=9999))
-            return unit_actions
+            return unit_actions, 0
 
         # sequence to dig
-        power_at_start_digging = unit.power - ACTION_QUEUE_COST - cost_to
         number_digs_at_least = ( power_at_start_digging - cost_from) // DIG_COST
         # prx(PREFIX, "cost to", cost_to)
         # prx(PREFIX, 'distance',len(directions), '(', power_at_start_digging, " - ", cost_from, ") //", DIG_COST, '=', number_digs_at_least)
@@ -714,7 +701,8 @@ class Agent():
         #we check if we can do more...
         while(True):
             extra_day_sun = 0
-            for d in range(turn_at_digging + 1 , turn_at_digging + 1 + number_digs_at_least + len(opposite_directions)):
+            turn_start_digging = turn_at_digging + 1
+            for d in range(turn_start_digging, turn_start_digging + 1 + number_digs_at_least + len(opposite_directions)):
                 if is_day(d):
                     extra_day_sun += 1
             new_number_digs_at_least = (power_at_start_digging - cost_from + (extra_day_sun * CHARGE)) // DIG_COST
@@ -727,6 +715,9 @@ class Agent():
 
         number_digs = number_digs_at_least
         # prx(PREFIX, 'number_digs=', number_digs)
+        if number_digs <= 0:
+            return unit_actions, number_digs
+
         unit_actions.append(unit.dig(n=number_digs))
 
         # sequence to return
@@ -741,9 +732,19 @@ class Agent():
 
         # and recharge
         unit_actions.append(Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power))
-        return unit_actions
+        return unit_actions, number_digs
 
 
+    def get_random_direction(self, unit, PREFIX=None):
+
+        move_deltas_real = [(1,(0, -1)), (2,(1, 0)), (3,(0, 1)), (4,(-1, 0))]
+        for direction,delta in move_deltas_real:
+            new_pos = np.array(unit.pos) + delta
+            # prc(PREFIX,"try random ",new_pos)
+            if not (new_pos[0],new_pos[1]) in self.unit_next_positions.values():
+                return direction
+
+        return 0
 
 
 
