@@ -442,8 +442,7 @@ class Agent():
                                     self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
                                     continue
 
-                    elif unit.cargo.ice >= unit.cargo_space() or unit.power <= unit.action_queue_cost() + unit.dig_cost() + unit.def_move_cost() * distance_to_factory:
-
+                    else:
                         if adjacent_to_factory:
                             actions.dropcargo_or_recharge(unit)
                         else:
@@ -483,7 +482,7 @@ class Agent():
                                 self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
                                 continue
 
-                    elif unit.cargo.ore >= unit.cargo_space() or unit.power <= unit.action_queue_cost() + unit.dig_cost() + unit.def_move_cost() * distance_to_factory:
+                    else:
                         if adjacent_to_factory:
                             actions.dropcargo_or_recharge(unit)
                         else:
