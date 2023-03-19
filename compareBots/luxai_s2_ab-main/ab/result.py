@@ -22,8 +22,11 @@ class ABResult:
         result_list = []
         win_a = 0; win_b = 0;
         lichen_a = 0; lichen_b = 0
+        tie_number = 0
         for r in self.replays:
             tie_flag = r.get_result() == "tie"
+            if tie_flag:
+                tie_number = tie_number + 1
             end_by_player_error_flag = (
                 r.get_result_by_player_error() is not None
             )
@@ -76,13 +79,13 @@ class ABResult:
         if (lichen_a + lichen_b) > 0 :
             lichen_rate = round(100.*(lichen_a)/(lichen_a + lichen_b),2)
             lichen_b_rate = round(100.*(lichen_b)/(lichen_a + lichen_b),2)
-        print('win_a',win_a,'wr='+str(win_rate)+"%",'win_b',win_b,'lichen_a',lichen_a,'lichen_b','lr='+str(lichen_rate)+"%")
+        print("tie_number",tie_number,'win_a',win_a,'wr='+str(win_rate)+"%",'win_b',win_b,'lichen_a',lichen_a,'lichen_b','lr='+str(lichen_rate)+"%")
         result_dict = {
                 "replay_file": "",
                 "player_0_hash": r.player_revisions[0],
                 "player_1_hash": r.player_revisions[1],
                 "seed": "TOTAL",
-                "tie_flag": "",
+                "tie_flag": tie_number,
                 "end_by_player_error_flag": "",
                 "end_by_factories_elimination_flag": "",
                 "end_by_running_out_of_turns_flag": "",

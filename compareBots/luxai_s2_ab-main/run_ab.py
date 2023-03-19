@@ -29,8 +29,8 @@ def main(
     rev_b = AgentRevision(script_path=agent_b, revision="B")
     result = run_ab(rev_a, rev_b, range(n_seeds), workdir / "replays")
     filename = "result_" +Path(agent_a).parts[-2]+"_"+Path(agent_b).parts[-2]+"_"+str(n_seeds)+".csv"
-    print("Saved to ",filename)
     result.get_result_df().to_csv(workdir / filename, index=False)
+    print("Saved to ", filename)
 
 
 if __name__ == "__main__":
