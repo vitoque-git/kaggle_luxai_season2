@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from typing import Iterable, Optional
 
 from joblib import Parallel, delayed
@@ -18,9 +20,20 @@ def get_replay_file_name(rev_a: AgentRevision, rev_b: AgentRevision, seed: int) 
 def run_game(
     script_a: LocalPath, script_b: LocalPath, seed: int, out_file: LocalPath
 ) -> None:
-    cmd = local["luxai-s2"][script_a][script_b]["-v", 0]["-s", seed]["-o", out_file]
-    cmd.run(retcode=None)
-    print (seed)
+    log_out_file = out_file + ".log"
+    log_err_file = out_file + ".err.log"
+    cmd = local["luxai-s2"][script_a][script_b]["-v", 10]["-s", seed]["-o", out_file]
+    exitcode,stdout,stderr = cmd.run(retcode=None)
+
+    # cmd = "luxai-s2 "+str(script_a)+" "+str(script_b)+" -v 0 -s "+ str(seed)+" -o "+ str(out_file)
+    # print (cmd + "   ")
+    # p = subprocess.Popen(cmd)
+
+    with open(log_out_file, "w") as text_file:
+        text_file.write(stdout)
+    with open(log_err_file, "w") as text_file:
+        text_file.write(stderr)
+    print (seed, exitcode)
 
 
 def run_game_and_get_replay(
