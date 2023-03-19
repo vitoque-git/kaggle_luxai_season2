@@ -61,8 +61,8 @@ class Queue:
     def is_next_queue_pickup(unit: lux.kit.Unit):
         return Queue.is_pickup(Queue.next_action(unit))
 
-    def action_pickup_power(unit: lux.kit.Unit, power):
-        return unit.pickup(4, power)
+    def action_pickup_power(unit: lux.kit.Unit, power, repeat=False):
+        return unit.pickup(4, power, repeat=repeat)
 
     def action_transfer_ore(unit: lux.kit.Unit):
         return unit.transfer(0, 1, unit.cargo.ore, repeat=False)
@@ -109,7 +109,8 @@ class Action_Queue():
         elif unit.power < unit.battery_capacity() * 0.1 and not Queue.is_next_queue_pickup(unit):
             self.actions[unit.unit_id] = [Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power)]
 
-
+    def set_new_actions(self, unit, unit_actions):
+        self.actions[unit.unit_id] = unit_actions
 
     def dig(self, unit):
         if not Queue.is_next_queue_dig(unit):
@@ -124,4 +125,5 @@ class Action_Queue():
 
     def move(self, unit, direction):
         self.actions[unit.unit_id] = [unit.move(direction, repeat=False)]
+
 

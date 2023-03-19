@@ -26,13 +26,15 @@ class Unit:
         if self.team_id == 0: return "player_0"
         return "player_1"
 
+    def charge_per_turn(self):
+        return self.env_cfg.ROBOTS[self.unit_type].CHARGE;
+
     def action_queue_cost(self, game_state):
         cost = self.env_cfg.ROBOTS[self.unit_type].ACTION_QUEUE_POWER_COST
         return cost
 
-    def move_cost(self, game_state, direction):
+    def move_cost_to(self, game_state, target_pos):
         board = game_state.board
-        target_pos = self.pos + move_deltas[direction]
         if target_pos[0] < 0 or target_pos[1] < 0 or target_pos[1] >= len(board.rubble) or target_pos[0] >= len(board.rubble[0]):
             # print("Warning, tried to get move cost for going off the map", file=sys.stderr)
             return None
@@ -43,6 +45,10 @@ class Unit:
         rubble_at_target = board.rubble[target_pos[0]][target_pos[1]]
         
         return math.floor(self.unit_cfg.MOVE_COST + self.unit_cfg.RUBBLE_MOVEMENT_COST * rubble_at_target)
+
+    def move_cost(self, game_state, direction):
+        return self.move_cost_to(game_state,self.pos + move_deltas[direction])
+
     def move(self, direction, repeat=0, n=1):
         if isinstance(direction, int):
             direction = direction

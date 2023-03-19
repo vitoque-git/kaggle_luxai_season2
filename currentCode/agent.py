@@ -3,7 +3,8 @@ import math
 from action import *
 from path_finder import *
 from lux.kit import obs_to_game_state, GameState, EnvConfig
-from lux.utils import direction_to, my_turn_to_place_factory
+from lux.utils import my_turn_to_place_factory
+from utils import *
 import sys
 
 
@@ -173,6 +174,7 @@ class Agent():
         return actions
 
 
+    # TODO we should first loop on HEAVY, then lights
 
     def act(self, step: int, obs, remainingOverageTime: int = 60):
         '''
@@ -381,6 +383,10 @@ class Agent():
                         task = self.factory_queue[self.bot_factory[unit_id]].pop(0)
 
                     prx(PREFIX,'from',factory_belong,unit.unit_type,'assigned task',task)
+                    # if task =='kill' and unit.unit_type == 'LIGHT':
+                    #     prx(PREFIX, 'Cannot get a light killer! Rubble instead')
+                    #     task = 'rubble'
+
                     self.bots_task[unit_id] = task
                     self.factory_bots[factory_belong][task].append(unit_id)
 
@@ -418,7 +424,15 @@ class Agent():
                             if actions.can_dig(unit):
                                 actions.dig(unit)
                         else:
-                            direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_ice, sorted_ice)
+                                direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_ice, sorted_ice)
+                                # direction, unit_actions, new_pos = self.get_complete_path_ice(game_state, unit, turn,
+                                #                                                               adjactent_position_to_avoid,
+                                #                                                               closest_ice, sorted_ice,
+                                #                                                               PREFIX)
+                                # if direction != 0:
+                                #     actions.set_new_actions(unit, unit_actions)
+                                #     self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
+                                #     continue
 
                     elif unit.cargo.ice >= unit.cargo_space() or unit.power <= unit.action_queue_cost(
                             game_state) + unit.dig_cost(game_state) + unit.def_move_cost() * distance_to_factory:
@@ -542,9 +556,11 @@ class Agent():
         self.built_robots.append(factory.pos_location())
         self.unit_next_positions[factory.unit_id] = factory.pos_location()
 
+    # Manhattan Distance between two points
     def get_distance(self, pos1, pos2):
         return abs(pos1[0]-pos2[0]) + abs(pos1[1]-pos2[1])
 
+    # Manhattan Distance between one points and one vector, return a vector
     def get_distance_vector(self, pos, points):
         return 2 * np.mean(np.abs(points - pos), 1)
 
@@ -577,15 +593,80 @@ class Agent():
 
         return bot_positions, botpos, botposheavy, opp_botpos, opp_botposheavy
 
-    def get_direction(self, game_state, unit, adjactent_position_to_avoid, closest_tile, sorted_tiles, PREFIX=None):
+    def get_direction(self, game_state, unit, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
 
-        closest_tile = np.array(closest_tile)
-        path = self.path_finder.get_shortest_path(unit.pos, closest_tile, points_to_exclude=adjactent_position_to_avoid)
+        destination = np.array(destination)
+        path = self.path_finder.get_shortest_path(unit.pos, destination, points_to_exclude=adjactent_position_to_avoid)
         direction = 0
         if len(path) > 1:
             direction = direction_to(np.array(unit.pos), path[1])
 
         return direction, unit.move_cost(game_state, direction)
+
+
+    def get_complete_path_ice(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
+        directions, opposite_directions, cost_to, cost_from, new_pos = self.get_complete_path(game_state, unit, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX)
+
+
+        # set first direction
+        if len(directions) >0:
+            unit_actions = self.get_actions_sequence(game_state, unit, turn, directions, opposite_directions, cost_to,
+                                                     cost_from, ice=True, PREFIX=PREFIX)
+            direction = directions[0]
+            return direction, unit_actions, new_pos
+        else:
+            return 0, [], new_pos
+
+    def get_complete_path(self, game_state, unit, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
+
+        destination = np.array(destination)
+        shortest_path = self.path_finder.get_shortest_path(unit.pos, destination,
+                                                           points_to_exclude=adjactent_position_to_avoid)
+        path = shortest_path
+        directions, opposite_directions = [], []
+        cost_to, cost_from = 0, 0
+        new_pos = None
+
+        # https://stackoverflow.com/questions/522563/accessing-the-index-in-for-loops
+        # >> > l = [1, 2, 3, 4, 5, 6]
+        #
+        # >> > zip(l, l[1:])
+        # [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6)]
+
+        # calculate directions
+        if len(path)>1:
+            new_pos = path[1]
+            for p1, p2 in zip(path, path[1:]):
+                # direction and opposite direction
+                d = direction_to(np.array(p1),np.array(p2))
+                d_opposite = opposite_direction(d)
+                #append
+                directions.append(d)
+                opposite_directions.insert(0, d_opposite)
+
+            for idx, p in enumerate(path):
+                cost = unit.move_cost_to(game_state, p)
+                if idx == 0:
+                    # only cost on the way back
+                    cost_from += cost
+                elif idx == len(path) - 1:
+                    # only cost to
+                    cost_to += cost
+                else:
+                    cost_to += cost
+                    cost_from += cost
+
+
+        #calculate costs
+        # prx(PREFIX, "get_complete_path from",unit.pos, destination)
+        # prx(PREFIX, "get_complete_path path to",directions)
+        # prx(PREFIX, "get_complete_path path from",opposite_directions)
+        # prx(PREFIX, "get_complete_path path costs",cost_to,cost_from)
+
+
+        return directions, opposite_directions, cost_to, cost_from, new_pos
+
+
 
     def get_random_direction(self, unit, PREFIX=None):
 
@@ -597,6 +678,72 @@ class Agent():
                 return direction
 
         return 0
+
+
+
+    def get_actions_sequence(self, game_state, unit, turn, directions, opposite_directions, cost_to, cost_from, ore=False, ice=False, PREFIX=None):
+        DIG_COST = unit.unit_cfg.DIG_COST
+        ACTION_QUEUE_COST = unit.action_queue_cost(game_state)
+        CHARGE = unit.charge_per_turn()
+
+        unit_actions = []
+
+        walking_turn_in_day = 0
+        turn_at_digging = turn+len(directions)
+        for d in range(turn, turn_at_digging):
+            if is_day(d):
+                walking_turn_in_day += 1
+        cost_to = cost_to - (walking_turn_in_day * CHARGE)
+
+
+        # sequence to go
+        for d in directions:
+            unit_actions.append(unit.move(d))
+
+        if unit.power < cost_to + DIG_COST:
+            # if we have not to go back and forth, just go there and dig undefinetely
+            unit_actions.append(unit.dig(n=9999))
+            return unit_actions
+
+        # sequence to dig
+        power_at_start_digging = unit.power - ACTION_QUEUE_COST - cost_to
+        number_digs_at_least = ( power_at_start_digging - cost_from) // DIG_COST
+        prx(PREFIX, "cost to", cost_to)
+        prx(PREFIX, 'distance',len(directions), '(', power_at_start_digging, " - ", cost_from, ") //", DIG_COST, '=', number_digs_at_least)
+
+
+
+        #we check if we can do more...
+        while(True):
+            extra_day_sun = 0
+            for d in range(turn_at_digging + 1 , turn_at_digging + 1 + number_digs_at_least + len(opposite_directions)):
+                if is_day(d):
+                    extra_day_sun += 1
+            new_number_digs_at_least = (power_at_start_digging - cost_from + (extra_day_sun * CHARGE)) // DIG_COST
+            prx(PREFIX, 'using extra day ', extra_day_sun, 'new_number_digs_at_least',new_number_digs_at_least)
+            if new_number_digs_at_least > number_digs_at_least:
+                prx(PREFIX, 'new_number_digs_at_least recalculated',new_number_digs_at_least, 'using extra day ',extra_day_sun )
+                number_digs_at_least = new_number_digs_at_least
+            else:
+                break
+
+        number_digs = number_digs_at_least
+        prx(PREFIX, 'number_digs=', number_digs)
+        unit_actions.append(unit.dig(n=number_digs))
+
+        # sequence to return
+        for d in opposite_directions:
+            unit_actions.append(unit.move(d))
+
+        # dropcargo
+        if ore:
+            unit_actions.append(Queue.action_transfer_ore(unit))
+        if ice:
+            unit_actions.append(Queue.action_transfer_ice(unit))
+
+        # and recharge
+        unit_actions.append(Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power))
+        return unit_actions
 
 
 
