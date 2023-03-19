@@ -608,6 +608,12 @@ class Agent():
 
 
     def get_complete_path_ice(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
+        return self._get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=PREFIX,ice=True)
+
+    def get_complete_path_ore(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
+        return self._get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles,PREFIX=PREFIX, ore=True)
+
+    def _get_complete_path(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None, ice=False, ore=False):
         directions, opposite_directions, cost_to, cost_from, new_pos = self.get_complete_path(game_state, unit, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX)
 
 
@@ -712,7 +718,7 @@ class Agent():
 
             if (power_at_start_digging + (extra_day_sun * CHARGE) - (new_number_digs * DIG_COST))  >= cost_from:
                 # prx(PREFIX, 'using extra day ', extra_day_sun, 'new_number_digs_at_least', new_number_digs)
-                prx(PREFIX, power_at_start_digging + (extra_day_sun * CHARGE) - (new_number_digs * DIG_COST), cost_from)
+                # prx(PREFIX, power_at_start_digging + (extra_day_sun * CHARGE) - (new_number_digs * DIG_COST), cost_from)
                 number_digs_at_least = new_number_digs
             else:
                 break
