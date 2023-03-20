@@ -208,6 +208,7 @@ class Agent():
         for factory_id, factory in factories.items():
 
             if factory_id not in self.factory_bots.keys():
+                prx(t_prefix, factory_id, " new factory")
                 self.factory_bots[factory_id] = {
                     'ice': [],
                     'ore': [],
@@ -217,68 +218,12 @@ class Agent():
 
                 self.factory_queue[factory_id] = []
 
-            for task in ['ice', 'ore', 'rubble', 'kill']:
-                for bot_unit_id in self.factory_bots[factory_id][task]:
-                    if bot_unit_id not in self.botpos.keys():
-                        self.factory_bots[factory_id][task].remove(bot_unit_id)
-
-            minbot_task = None
-            min_bots = {
-                'ice': 1,
-                'ore': 5,
-                'rubble': 5,
-                'kill': 1
-            }
-            # NO. BOTS PER TASK
-            for task in ['ice', 'kill', 'ore', 'rubble']:
-                num_bots = len(self.factory_bots[factory_id][task]) + sum([task in self.factory_queue[factory_id]])
-                if num_bots < min_bots[task]:
-                    minbots = num_bots
-                    minbot_task = task
-                    break
-
-            #BUILD ROBOT ENTRY POINT
-            if minbot_task is not None:
-                # TODO THIS SHOULD BE MOVED AFTER ROBOT MOVEMENT, SO TO CHECK IF ROBOTS ARE STILL THERE
-                #
-                #     if ((factory.pos[0],factory.pos[1])) in self.unit_locations:
-                #         pr(t_prefix, factory.unit_id, "Cannot build robot, already an unit present",factory.pos)
-                #
-                if minbot_task in ['kill', 'ice']:
-                    if factory.can_build_heavy(game_state):
-                        self.build_heavy_robot(actions, factory, t_prefix)
-                    elif factory.can_build_light(game_state):
-                        self.build_light_robot(actions, factory, t_prefix)
-                else:
-                    if factory.can_build_light(game_state):
-                        self.build_light_robot(actions, factory, t_prefix)
-                    elif factory.can_build_heavy(game_state):
-                        self.build_heavy_robot(actions, factory, t_prefix)
-
-                if factory_id not in self.factory_queue.keys():
-                    self.factory_queue[factory_id] = [minbot_task]
-                    # prx(t_prefix, "set id ",factory_id,' to ', self.factory_queue[factory_id])
-                else:
-                    self.factory_queue[factory_id].append(minbot_task)
-                    # prx(t_prefix, "append id ", factory_id, ' to ', self.factory_queue[factory_id])
 
             factory_tiles += [factory.pos]
             Path_Finder.expand_point(factory_areas, factory.pos)
             factory_units += [factory]
             factory_ids += [factory_id]
 
-            #if we have excess water use to grow lichen
-            if (factory.cargo.water - factory.water_cost(game_state)) > 1:
-                # at the end, we start water if we can
-                if turn_left<10 and \
-                        (factory.cargo.water + math.floor(factory.cargo.ice / 4) - factory.water_cost(game_state)) > turn_left:
-                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state),"left=", turn_left)
-                    actions.water(factory)
-
-                # anyway, we start water if we have resource to water till the end
-                elif (factory.cargo.water + math.floor(factory.cargo.ice / 4)) > turn_left * max(1,(1 + factory.water_cost(game_state))):
-                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state), "left=", turn_left)
-                    actions.water(factory)
 
 
         factory_tiles = np.array(factory_tiles)  # Factory locations (to go back to)
@@ -377,18 +322,18 @@ class Agent():
 
                 ## Assigning task for the bot
                 if self.bots_task[unit_id] == '':
-                    task = 'ice'
+                    t = 'ice'
                     if len(self.factory_queue[self.bot_factory[unit_id]]) != 0:
                         prx(PREFIX, "QUEUE", self.factory_queue[self.bot_factory[unit_id]])
-                        task = self.factory_queue[self.bot_factory[unit_id]].pop(0)
+                        t = self.factory_queue[self.bot_factory[unit_id]].pop(0)
 
-                    prx(PREFIX,'from',factory_belong,unit.unit_type,'assigned task',task)
+                    prx(PREFIX,'from',factory_belong,unit.unit_type,'assigned task',t)
                     # if task =='kill' and unit.unit_type == 'LIGHT':
                     #     prx(PREFIX, 'Cannot get a light killer! Rubble instead')
                     #     task = 'rubble'
 
-                    self.bots_task[unit_id] = task
-                    self.factory_bots[factory_belong][task].append(unit_id)
+                    self.bots_task[unit_id] = t
+                    self.factory_bots[factory_belong][t].append(unit_id)
 
                 assigned_task = self.bots_task[unit_id]
                 if len(self.opp_botpos) != 0 and opponent_min_distance == 1 and unit.unit_type == "HEAVY" and assigned_task != "kill":
@@ -565,6 +510,67 @@ class Agent():
                     prc(PREFIX, 'Not moving, remove node ', unit.pos, unit.pos_location() in self.unit_next_positions.values())
                     self.unit_next_positions[unit.unit_id] = unit.pos_location()
 
+        # FACTORY LOOP
+        for factory_id, factory in factories.items():
+            if factory.can_build_light(game_state):
+
+                new_task = None
+                min_bots = {
+                    'ice': 1,
+                    'ore': 5,
+                    'rubble': 5,
+                    'kill': 1
+                }
+
+                # NO. BOTS PER TASK
+                for t in ['ice', 'kill', 'ore', 'rubble']:
+                    num_bots = len(self.factory_bots[factory_id][t]) + sum([t in self.factory_queue[factory_id]])
+                    if num_bots < min_bots[t]:
+                        prx(t_prefix, "We have less bots(", num_bots, ") for", t, " than min", min_bots[t])
+                        new_task = t
+                        break
+
+                # BUILD ROBOT ENTRY POINT
+                if new_task is not None:
+                    # Check we are not building on top of another unit
+                    if ((factory.pos[0],factory.pos[1])) in self.unit_next_positions.values():
+                        pr(t_prefix, factory.unit_id, "Cannot build robot, already an unit present",factory.pos)
+                        continue
+
+                    if new_task in ['kill', 'ice']:
+                        if factory.can_build_heavy(game_state):
+                            self.build_heavy_robot(actions, factory, t_prefix)
+                        elif factory.can_build_light(game_state):
+                            self.build_light_robot(actions, factory, t_prefix)
+                    else:
+                        if factory.can_build_light(game_state):
+                            self.build_light_robot(actions, factory, t_prefix)
+
+                    if factory_id not in self.factory_queue.keys():
+                        self.factory_queue[factory_id] = [new_task]
+                        prx(t_prefix, "set id ", factory_id, ' to ', self.factory_queue[factory_id])
+                    else:
+                        self.factory_queue[factory_id].append(new_task)
+                        # prx(t_prefix, "append id ", factory_id, ' to ', self.factory_queue[factory_id])
+
+
+
+
+            # if we have excess water use to grow lichen
+            if (factory.cargo.water - factory.water_cost(game_state)) > 1:
+                # at the end, we start water if we can
+                if turn_left < 10 and \
+                        (factory.cargo.water + math.floor(factory.cargo.ice / 4) - factory.water_cost(
+                            game_state)) > turn_left:
+                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state),"left=", turn_left)
+                    actions.water(factory)
+
+                # anyway, we start water if we have resource to water till the end
+                elif (factory.cargo.water + math.floor(factory.cargo.ice / 4)) > turn_left * max(1, (
+                        1 + factory.water_cost(game_state))):
+                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state), "left=", turn_left)
+                    actions.water(factory)
+
         return actions.actions
 
     def build_light_robot(self, actions, factory, t_prefix):
@@ -576,7 +582,7 @@ class Agent():
         self.built_robot(factory, 'HEAVY' ,t_prefix)
 
     def built_robot(self, factory, type, t_prefix):
-        pr(t_prefix, factory.unit_id, "Build",type,"robot", factory.pos)
+        pr(t_prefix, factory.unit_id, "Build",type,"robot in", factory.pos)
         self.built_robots.append(factory.pos_location())
         self.unit_next_positions[factory.unit_id] = factory.pos_location()
 
