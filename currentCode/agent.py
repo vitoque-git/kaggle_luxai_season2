@@ -378,9 +378,9 @@ class Agent():
                                 actions.dig(unit)
                         else:
                                 # direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_ice, sorted_ice)
-                                direction, unit_actions, new_pos, num_digs = self.get_complete_path_ice(game_state, unit, turn,
+                                direction, unit_actions, new_pos, num_digs, num_steps, cost = self.get_complete_path_ice(game_state, unit, turn,
                                                                                               adjactent_position_to_avoid,
-                                                                                              closest_ice, sorted_ice,
+                                                                                              closest_ice,
                                                                                               PREFIX)
                                 if direction != 0 and num_digs>0:
                                     actions.set_new_actions(unit, unit_actions,PREFIX)
@@ -418,11 +418,10 @@ class Agent():
                                 actions.dig(unit)
                         else:
                             # direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_ore, sorted_ore)
-                            direction, unit_actions, new_pos, num_digs = self.get_complete_path_ore(game_state, unit,
+                            direction, unit_actions, new_pos, num_digs, num_steps, cost = self.get_complete_path_ore(game_state, unit,
                                                                                                     turn,
                                                                                                     adjactent_position_to_avoid,
                                                                                                     closest_ore,
-                                                                                                    sorted_ore,
                                                                                                     PREFIX)
 
                             # prx(PREFIX, "new ore direction ", direction)
@@ -451,14 +450,51 @@ class Agent():
 
                         # if we have reached the rubble tile, start mining if possible
                         if np.all(closest_rubble == unit.pos) or rubble_map[unit.pos[0], unit.pos[1]] != 0:
-                            #prc(PREFIX,"can dig, on ruble")
+                            # prx(PREFIX,"can dig, on ruble")
                             if actions.can_dig(unit):
-                                #prc(PREFIX,"dig ",rubble_map[unit.pos[0], unit.pos[1]])
+                                # prx(PREFIX,"dig ",rubble_map[unit.pos[0], unit.pos[1]])
                                 actions.dig(unit)
                         else:
-                            #prc(PREFIX, "can dig, not on ruble, move to next ruble")
+                            # prx(PREFIX, "can dig, not on ruble, move to next ruble")
                             if len(rubble_locations) != 0:
-                                direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_rubble, sorted_rubble)                        
+                                # direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_rubble, sorted_rubble)
+                                direction = 0
+                                old_r = None
+                                for closest in sorted_rubble:
+                                    # direction, unit_actions, new_pos, num_digs, num_steps, cost
+                                    r = self.get_complete_path(game_state,unit, turn, adjactent_position_to_avoid, closest, PREFIX, one_way_only_and_dig=True)
+                                    this_direction = r[0]
+                                    this_steps = r[4]
+                                    this_cost = r[5]
+                                    found = False
+                                    if this_steps >= unit.get_distance(closest) + 3 and old_r is None:
+                                        prx(PREFIX, "try again", closest, 'distance', unit.get_distance(closest), 'steps',this_steps, 'cost',this_cost)
+                                        old_r = r
+                                        continue
+                                    elif this_direction != 0 and old_r is not None:
+                                        if old_r[5]< this_cost:
+                                            prx(PREFIX, "Will use previous path",old_r[5],"instead", this_cost)
+                                            direction, unit_actions, new_pos, num_digs, num_steps, cost = old_r
+                                            found = True
+                                        else:
+                                            prx(PREFIX, "Chosen alternative path", this_cost, "instead of old ", old_r[5])
+                                            direction, unit_actions, new_pos, num_digs, num_steps, cost = r
+                                            found = True
+                                    elif this_direction != 0:
+                                        direction, unit_actions, new_pos, num_digs, num_steps, cost = r
+                                        found = True
+                                    if found: break
+                                # prx(PREFIX, "found", direction)
+
+                                # prx(PREFIX, "new ore direction ", direction)
+                                if direction == 0:
+                                    actions.clear_action(unit, PREFIX)
+
+                                elif direction != 0 :
+                                    actions.set_new_actions(unit, unit_actions, PREFIX)
+                                    self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
+                                    # prx(PREFIX, "set next position ", new_pos)
+                                    continue
 
                     elif unit.power <= unit.action_queue_cost() + unit.dig_cost() + unit.rubble_dig_cost():
                         #prc(PREFIX, "cannot dig, adjacent")
@@ -522,6 +558,8 @@ class Agent():
 
         # FACTORY LOOP
         for factory_id, factory in factories.items():
+
+            built = False
             if factory.can_build_light(game_state):
 
                 new_task = None
@@ -540,6 +578,10 @@ class Agent():
                         new_task = t
                         break
 
+                # toward the end of the game, build as many as rubble collector as you can
+                # if turn_left<200:
+                #     new_task = 'rubble'
+
                 # BUILD ROBOT ENTRY POINT
                 if new_task is not None:
                     # Check we are not building on top of another unit
@@ -548,13 +590,15 @@ class Agent():
                         continue
 
                     if new_task in ['kill', 'ice']:
-                        if factory.can_build_heavy(game_state):
+                        if factory.can_build_heavy(game_state) or turn_left<200:
                             self.build_heavy_robot(actions, factory, t_prefix)
                         elif factory.can_build_light(game_state):
                             self.build_light_robot(actions, factory, t_prefix)
                     else:
                         if factory.can_build_light(game_state):
                             self.build_light_robot(actions, factory, t_prefix)
+
+                    built = True
 
                     if factory_id not in self.factory_queue.keys():
                         self.factory_queue[factory_id] = [new_task]
@@ -563,27 +607,26 @@ class Agent():
                         self.factory_queue[factory_id].append(new_task)
                         # prx(t_prefix, "append id ", factory_id, ' to ', self.factory_queue[factory_id])
 
+            # if we have excess water use to grow lichen
+            if not built:
+                if (factory.cargo.water - factory.water_cost(game_state)) > 1:
+                    # at the end, we start water if we can
+                    if turn_left < 10 and \
+                            (factory.cargo.water + math.floor(factory.cargo.ice / 4) - factory.water_cost(
+                                game_state)) > turn_left:
+                        # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state),"left=", turn_left)
+                        actions.water(factory)
+
+                    # anyway, we start water if we have resource to water till the end
+                    elif (factory.cargo.water + math.floor(factory.cargo.ice / 4)) > turn_left * max(1, (
+                            1 + factory.water_cost(game_state))):
+                        # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state), "left=", turn_left)
+                        actions.water(factory)
+
         # if turn==205:
         #     prx(t_prefix,"newxt_position =====",self.unit_next_positions)
-        # if turn==206:
+        # if turn==18:
         #     a=5/0.
-
-
-
-            # if we have excess water use to grow lichen
-            if (factory.cargo.water - factory.water_cost(game_state)) > 1:
-                # at the end, we start water if we can
-                if turn_left < 10 and \
-                        (factory.cargo.water + math.floor(factory.cargo.ice / 4) - factory.water_cost(
-                            game_state)) > turn_left:
-                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state),"left=", turn_left)
-                    actions.water(factory)
-
-                # anyway, we start water if we have resource to water till the end
-                elif (factory.cargo.water + math.floor(factory.cargo.ice / 4)) > turn_left * max(1, (
-                        1 + factory.water_cost(game_state))):
-                    # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.water, "cost=", factory.water_cost(game_state), "left=", turn_left)
-                    actions.water(factory)
 
         return actions.actions
 
@@ -608,10 +651,8 @@ class Agent():
     def get_distance_vector(self, pos, points):
         return 2 * np.mean(np.abs(points - pos), 1)
 
-    def get_map_distances(self, locations, pos, rubble_map=[] ):
-        if len(rubble_map)>0:
-            rubbles = np.array([rubble_map[pos[0]][pos[1]] for pos in locations])
-        distances = self.get_distance_vector(pos, locations)  # - (rubbles)*10
+    def get_map_distances(self, locations, pos):
+        distances = self.get_distance_vector(pos, locations)
         sorted_loc = [locations[k] for k in np.argsort(distances)]
         closest_loc = sorted_loc[0]
         return closest_loc, sorted_loc
@@ -648,26 +689,26 @@ class Agent():
         return direction, unit.move_cost(game_state, direction)
 
 
-    def get_complete_path_ice(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
-        return self._get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=PREFIX,drop_ice=True)
+    def get_complete_path_ice(self, game_state, unit, turn, adjactent_position_to_avoid, destination, PREFIX=None, one_way_only_and_dig=False):
+        return self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination, PREFIX=PREFIX,drop_ice=True, one_way_only_and_dig=one_way_only_and_dig)
 
-    def get_complete_path_ore(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
-        return self._get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles,PREFIX=PREFIX, drop_ore=True)
+    def get_complete_path_ore(self, game_state, unit, turn, adjactent_position_to_avoid, destination, PREFIX=None, one_way_only_and_dig=False):
+        return self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination,PREFIX=PREFIX, drop_ore=True,one_way_only_and_dig=one_way_only_and_dig)
 
-    def _get_complete_path(self, game_state, unit, turn, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None, drop_ice=False, drop_ore=False):
-        directions, opposite_directions, cost_to, cost_from, new_pos = self.get_complete_path(game_state, unit, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX)
+    def get_complete_path(self, game_state, unit, turn, adjactent_position_to_avoid, destination, PREFIX=None, drop_ice=False, drop_ore=False,one_way_only_and_dig=False):
+        directions, opposite_directions, cost_to, cost_from, new_pos, num_steps, cost = self.get_one_way_path(game_state, unit, adjactent_position_to_avoid, destination, PREFIX)
 
 
         # set first direction
         if len(directions) >0:
             unit_actions, number_digs = self.get_actions_sequence(game_state, unit, turn, directions, opposite_directions, cost_to,
-                                                                  cost_from, drop_ice=drop_ice, drop_ore=drop_ore, PREFIX=PREFIX)
+                                                                  cost_from, drop_ice=drop_ice, drop_ore=drop_ore, PREFIX=PREFIX, one_way_only_and_dig=one_way_only_and_dig)
             direction = directions[0]
-            return direction, unit_actions, new_pos, number_digs
+            return direction, unit_actions, new_pos, number_digs, num_steps, cost
         else:
-            return 0, [], new_pos, 0
+            return 0, [], new_pos, 0, 0, 0
 
-    def get_complete_path(self, game_state, unit, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
+    def get_one_way_path(self, game_state, unit, adjactent_position_to_avoid, destination, PREFIX=None):
 
         destination = np.array(destination)
         path = self.path_finder.get_shortest_path(unit.pos, destination,
@@ -713,9 +754,9 @@ class Agent():
         # prx(PREFIX, "get_complete_path path costs",cost_to,cost_from)
 
 
-        return directions, opposite_directions, cost_to, cost_from, new_pos
+        return directions, opposite_directions, cost_to, cost_from, new_pos, len(path), cost_to
 
-    def get_actions_sequence(self, game_state, unit, turn, directions, opposite_directions, cost_to, cost_from, drop_ore=False, drop_ice=False, PREFIX=None):
+    def get_actions_sequence(self, game_state, unit, turn, directions, opposite_directions, cost_to, cost_from, drop_ore=False, drop_ice=False, PREFIX=None, one_way_only_and_dig=False):
         DIG_COST = unit.unit_cfg.DIG_COST
         ACTION_QUEUE_COST = unit.action_queue_cost()
         CHARGE = unit.charge_per_turn()
@@ -736,9 +777,9 @@ class Agent():
 
         power_at_start_digging = unit.power - ACTION_QUEUE_COST - cost_to
         # prx(PREFIX, "1 power_at_start_digging", power_at_start_digging, "DIG_COST", DIG_COST)
-        if power_at_start_digging < DIG_COST:
+        if power_at_start_digging < DIG_COST or one_way_only_and_dig:
             # if we have not to go back and forth, just go there and dig undefinetely
-            unit_actions.append(unit.dig(n=9999))
+            unit_actions.append(unit.dig(n=50))
             return unit_actions, 0
 
         # sequence to dig
