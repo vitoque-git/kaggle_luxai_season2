@@ -93,6 +93,13 @@ class Unit:
     def pos_location(self):
         return (self.pos[0],self.pos[1])
 
+    def get_distance(self,  pos):
+        return abs(self.pos[0]-pos[0]) + abs(self.pos[1]-pos[1])
+
+    # Manhattan Distance between one points and one vector, return a vector
+    def get_distance_vector(self, points):
+        return 2 * np.mean(np.abs(points - self.pos), 1)
+
 #THIS LOOKS WRONG 		
     def can_dig(self, game_state):
        return self.power > self.action_queue_cost() + self.dig_cost() + self.rubble_dig_cost()
