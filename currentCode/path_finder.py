@@ -15,7 +15,7 @@ def prx(*args): pr(*args, force=True)
 class Path_Finder():
     def __init__(self) -> None:
         self.G = nx.Graph()
-        self.rubbles = []
+        self.rubbles = None
         self.prohibited_locations=[]
         self.deltas = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
@@ -47,7 +47,13 @@ class Path_Finder():
         return self._build_path(rubbles, opp_factories_areas)
 
     def _build_path(self, rubbles, prohibited_locations=[]):
+        if self.rubbles is None:
+            self._build_path_initial(rubbles, prohibited_locations)
+        else:
+            #self._build_path_initial(rubbles, prohibited_locations)
+            self._build_path_diff(rubbles, prohibited_locations)
 
+    def _build_path_initial(self, rubbles, prohibited_locations=[]):
         self.G = nx.Graph()
         self.rubbles = rubbles
         self.prohibited_locations = prohibited_locations
@@ -62,6 +68,50 @@ class Path_Finder():
         for g1 in self.G.nodes:
             self._add_edge(add_delta, g1)
         # prx("Edges created.")
+
+    def _build_path_diff(self, rubbles, prohibited_locations=[]):
+        if list(prohibited_locations) != list(self.prohibited_locations):
+            # if factories have changed, just rebuild teh whole things, we could be more efficient, but happens few time per match
+            self._build_path_initial(rubbles, prohibited_locations)
+        else:
+            self.rubbles = rubbles
+            old_rubble = nx.get_node_attributes(self.G, "rubble")
+            # prx(type(self.rubbles),type(old_rubble))
+            # diff = self.rubbles - old_rubble
+            add_delta = lambda a: tuple(np.array(a[0]) + np.array(a[1]))
+
+            for x in range(self.rubbles.shape[0]):
+                for y in range(self.rubbles.shape[1]):
+                    # if rubble has changed
+                    g2 = (x, y)
+                    if self.G.has_node(g2):
+                        if ((x, y) not in old_rubble) or (old_rubble[x, y] - self.rubbles[x, y]) != 0:
+                            # if (x, y) not in old_rubble:
+                            #     prx("Rubble changed(", x, y, ") from ?? to", self.rubbles[x, y])
+                            # else:
+                            #     #prx("Rubble changed(", x, y, ") from", old_rubble[x, y],"to", self.rubbles[x, y])
+                            #     pass
+                            self.G.remove_node(g2)
+                            self.G.add_node(g2, rubble=self.rubbles[x, y])
+                            for delta in self.deltas:
+                                g1 = add_delta((g2, delta))
+                                if self.G.has_node(g1):
+                                    self.G.add_edge(g1, g2, cost=20 + self.rubbles[g2])
+
+
+
+            #TEST
+            # updated_rubble = nx.get_node_attributes(self.G, "rubble")
+            #
+            # self._build_path_initial(rubbles, prohibited_locations)
+            # updated_rubble2 = nx.get_node_attributes(self.G, "rubble")
+            # for x in range(self.rubbles.shape[0]):
+            #     for y in range(self.rubbles.shape[1]):
+            #         if (x, y) in updated_rubble:
+            #             if (x, y) in updated_rubble2:
+            #                 if updated_rubble[x, y] - updated_rubble[x, y] != 0:
+            #                     prx(x,y)
+            #                     a= 5/0.
 
     def _add_node(self, x, y):
         if (x, y) in self.prohibited_locations:
