@@ -145,4 +145,7 @@ class Action_Queue():
         if not Queue.is_next_queue_move(unit,direction):
             self.actions[unit.unit_id] = [unit.move(direction, repeat=False)]
 
+    def clear_action(self, unit, PREFIX):
+        self.actions[unit.unit_id] = []
+
 

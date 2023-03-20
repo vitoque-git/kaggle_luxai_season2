@@ -265,7 +265,7 @@ class Agent():
         # UNIT LOOP
         for unit_id, unit in iter(sorted(units.items())):
 
-            PREFIX = t_prefix+" "+unit_id+ " "+ unit.unit_type+"("+str(unit.power)+")"
+            PREFIX = t_prefix+" "+unit_id+ " "+ unit.unit_type+"("+str(unit.power)+") @"+str(unit.pos)
 
             if unit_id not in self.bots_task.keys():
                 self.bots_task[unit_id] = ''
@@ -394,6 +394,7 @@ class Agent():
                             direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, [closest_factory_area])
 
                 elif assigned_task == 'ore':
+                    # prx(PREFIX, "Looking for ore")
                     cost_home = self.get_cost_to(game_state, unit, turn, adjactent_position_to_avoid,
                                                  closest_factory_area)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
@@ -406,12 +407,13 @@ class Agent():
 
                     if unit.cargo.ore < unit.cargo_space() \
                             and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home:
-
+                        # prx(PREFIX, "Looking for ore, actively")
                         # get closest ore
                         closest_ore, sorted_ore = self.get_map_distances(ore_locations, unit.pos)
 
                         # if we have reached the ore tile, start mining if possible
                         if np.all(closest_ore == unit.pos):
+                            # prx(PREFIX, "On ore, try to dig,",closest_ore)
                             if actions.can_dig(unit):
                                 actions.dig(unit)
                         else:
@@ -422,10 +424,17 @@ class Agent():
                                                                                                     closest_ore,
                                                                                                     sorted_ore,
                                                                                                     PREFIX)
-                            if direction != 0 and num_digs > 0:
+
+                            # prx(PREFIX, "new ore direction ", direction)
+                            if direction == 0:
+                                actions.clear_action(unit, PREFIX)
+
+                            elif direction != 0 and num_digs > 0:
                                 actions.set_new_actions(unit, unit_actions,PREFIX)
                                 self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
+                                # prx(PREFIX, "set next position ", new_pos)
                                 continue
+
 
                     else:
                         if adjacent_to_factory:
@@ -553,6 +562,10 @@ class Agent():
                         self.factory_queue[factory_id].append(new_task)
                         # prx(t_prefix, "append id ", factory_id, ' to ', self.factory_queue[factory_id])
 
+        # if turn==205:
+        #     prx(t_prefix,"newxt_position =====",self.unit_next_positions)
+        # if turn==206:
+        #     a=5/0.
 
 
 
