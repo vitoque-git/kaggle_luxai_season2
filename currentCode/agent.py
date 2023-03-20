@@ -499,24 +499,25 @@ class Agent():
 
 
                 if move_cost is not None and direction == 0:
-                    prc(PREFIX, 'cannot find a path')
-                    if unit.pos in factory_tiles:
-                        prc(PREFIX, 'Should not stay here on a center factory, can kill my friends..',unit.pos)
+                    # prc(PREFIX, 'cannot find a path')
+                    closest_center, sorted_centers = self.get_map_distances(factory_tiles, unit.pos)
+                    if np.all(closest_center == unit.pos):
+                        prx(PREFIX, 'Should not stay here on a center factory, can kill my friends..',unit.pos)
                         direction = self.get_random_direction(unit, PREFIX)
-                        prc(PREFIX, 'Random got ', direction)
+                        prx(PREFIX, 'Random got ', direction)
 
                 # check move_cost is not None, meaning that direction is not blocked
                 # check if unit has enough power to move and update the action queue.
-                if move_cost is not None and direction != 0 and unit.power >= move_cost + unit.action_queue_cost():
 
+                if move_cost is not None and direction != 0 and unit.power >= move_cost + unit.action_queue_cost():
                     actions.move(unit,direction)
                     # new position
                     new_pos = np.array(unit.pos) + self.move_deltas[direction]
-                    prc(PREFIX,'move to ', direction, (new_pos[0],new_pos[1]) in self.unit_next_positions.values())
+                    # prc(PREFIX,'move to ', direction, (new_pos[0],new_pos[1]) in self.unit_next_positions.values())
                     self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
                 else:
                     #not moving
-                    prc(PREFIX, 'Not moving, remove node ', unit.pos, unit.pos_location() in self.unit_next_positions.values())
+                    # prx(PREFIX, 'Not moving, remove node ', unit.pos, unit.pos_location() in self.unit_next_positions.values())
                     self.unit_next_positions[unit.unit_id] = unit.pos_location()
 
         # FACTORY LOOP
