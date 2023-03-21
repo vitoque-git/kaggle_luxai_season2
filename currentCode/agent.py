@@ -202,7 +202,8 @@ class Agent():
         factories = game_state.factories[self.player]
         factory_tiles, factory_units, factory_ids, factory_areas = [], [], [], []
         self.built_robots = []
-        self.unit_next_positions = {}
+        self.unit_next_positions = {} # index unit id
+        self.unit_current_positions = {} #index position
 
         # FACTORY LOOP
         for factory_id, factory in factories.items():
@@ -258,9 +259,13 @@ class Agent():
 
         rubble_and_opposite_lichen_locations = np.vstack((rubble_locations,lichen_opposite_locations))
 
+        # Initial loop to set present and future locations of units
+        self.unit_next_positions = {}
+        self.unit_current_positions = {}
         for unit_id, unit in iter(sorted(units.items())):
             # default next position to current position, we will modify then in case of movements
             self.unit_next_positions[unit.unit_id] = unit.pos_location()
+            self.unit_current_positions[unit.pos_location()] = unit
 
         # UNIT LOOP
         for unit_id, unit in iter(sorted(units.items())):
@@ -457,7 +462,17 @@ class Agent():
                         else:
                             # prx(PREFIX, "can dig, not on ruble, move to next ruble")
                             if len(rubble_locations) != 0:
-                                # direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_rubble, sorted_rubble)
+
+                                # see if in the straight direction there is a friendly unit
+                                # if direction != 0 and move_to in self.unit_current_positions.keys():
+                                #     unit_moving_on: lux.kit.Unit = self.unit_current_positions[move_to]
+                                #     if unit_moving_on.battery_capacity_left() > 0:
+                                #         prx(PREFIX, "XXXXXXXXXXXXXXXXXX going on top of", unit_moving_on.unit_id)
+                                #         prx(PREFIX, 'me ', unit.cargo, 'power', unit.battery_info())
+                                #         prx(PREFIX, 'him', unit_moving_on.cargo, 'power', unit_moving_on.battery_info())
+                                #         actions.transfer_energy(unit, direction, min(unit.power, unit_moving_on.battery_capacity_left()))
+                                #         break
+
                                 direction = 0
                                 old_r = None
                                 for closest in sorted_rubble:
@@ -678,6 +693,12 @@ class Agent():
 
         return bot_positions, botpos, botposheavy, opp_botpos, opp_botposheavy
 
+    def get_straight_direction(self, unit, closest_tile):
+        closest_tile = np.array(closest_tile)
+        direction = direction_to(np.array(unit.pos), closest_tile)
+        move_to = get_next_pos(unit.pos_location(), direction)
+        return direction, move_to
+
     def get_direction(self, game_state, unit, adjactent_position_to_avoid, destination, sorted_tiles, PREFIX=None):
 
         destination = np.array(destination)
@@ -812,7 +833,7 @@ class Agent():
 
         # if turn == 48: 5/0.
 
-        unit_actions.append(unit.dig(n=max(number_digs,50)))
+        unit_actions.append(unit.dig(n=min(number_digs,50)))
 
         # sequence to return
         for d in opposite_directions:

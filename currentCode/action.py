@@ -79,8 +79,8 @@ class Queue:
     def action_transfer_ice(unit: lux.kit.Unit):
         return unit.transfer(0, 0, unit.cargo.ice, repeat=False)
 
-    def action_transfer_power(unit: lux.kit.Unit, amount):
-        return unit.transfer(0, 4, amount, repeat=False)
+    def action_transfer_power(unit: lux.kit.Unit, direction, amount):
+        return unit.transfer(direction, 4, amount, repeat=False)
 
     def real_cost_dig(unit: lux.kit.Unit):
         if not Queue.is_next_queue_dig(unit):
@@ -144,8 +144,8 @@ class Action_Queue():
     def transfer_ore(self, unit):
         self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit)]
 
-    def transfer_energy(self, unit, amount):
-        self.actions[unit.unit_id] = [Queue.action_transfer_power(unit, amount)]
+    def transfer_energy(self, unit, direction, amount):
+        self.actions[unit.unit_id] = [Queue.action_transfer_power(unit, direction, amount)]
 
     def move(self, unit, direction):
         if not Queue.is_next_queue_move(unit,direction):
