@@ -103,7 +103,7 @@ class Action_Queue():
     def water(self, f):
         self.actions[f.unit_id] = f.water()
 
-    def can_dig(self, unit):
+    def can_dig(self, unit: lux.kit.Unit):
         if not Queue.is_next_queue_dig(unit):
             # not already digging action, dig cost + cost action queue cost
             return unit.power >= (unit.dig_cost() + unit.action_queue_cost())

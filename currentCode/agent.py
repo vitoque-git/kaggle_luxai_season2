@@ -262,6 +262,7 @@ class Agent():
         # Initial loop to set present and future locations of units
         self.unit_next_positions = {}
         self.unit_current_positions = {}
+        power_transfered = {} # index is position
         for unit_id, unit in iter(sorted(units.items())):
             # default next position to current position, we will modify then in case of movements
             self.unit_next_positions[unit.unit_id] = unit.pos_location()
@@ -445,8 +446,8 @@ class Agent():
                             direction, move_cost = self.get_direction(game_state, unit, adjactent_position_to_avoid,closest_factory_tile, [closest_factory_area])                      
                 # RUBBLE
                 elif assigned_task == 'rubble':
-                    # if actions.can_dig(unit): THIS SEEMS WRONG BUT DECREASE PERFORMANCE
-                    if unit.can_dig(game_state):
+                    if actions.can_dig(unit): #THIS SEEMS WRONG BUT DECREASE PERFORMANCE
+                    # if actions.can_dig(unit):
 
                         # compute the distance to each rubble tile from this unit and pick the closest
                         closest_rubble, sorted_rubble = self.get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
@@ -458,19 +459,12 @@ class Agent():
                                 # prx(PREFIX,"dig ",rubble_map[unit.pos[0], unit.pos[1]])
                                 actions.dig(unit)
                         else:
-                            # prx(PREFIX, "can dig, not on ruble, move to next ruble")
+                            prx(PREFIX, "can dig, not on ruble, move to next ruble")
                             if len(rubble_locations) != 0:
 
                                 # see if in the straight direction there is a friendly unit
-                                # direction, move_to = self.get_straight_direction(unit, closest_rubble)
-                                # if direction != 0 and move_to in self.unit_current_positions.keys():
-                                #     unit_moving_on: lux.kit.Unit = self.unit_current_positions[move_to]
-                                #     if unit_moving_on.battery_capacity_left() > 0:
-                                #         prx(PREFIX, "XXXXXXXXXXXXXXXXXX going on top of", unit_moving_on.unit_id)
-                                #         prx(PREFIX, 'me ', unit.cargo, 'power', unit.battery_info())
-                                #         prx(PREFIX, 'him', unit_moving_on.cargo, 'power', unit_moving_on.battery_info())
-                                #         actions.transfer_energy(unit, direction, min(unit.power, unit_moving_on.battery_capacity_left()))
-                                #         break
+                                # if (self.check_can_transef_power_next_unit(PREFIX, unit, actions, closest_rubble, power_transfered)):
+                                #     break
 
                                 direction = 0
                                 old_r = None
@@ -643,6 +637,26 @@ class Agent():
         #     a=5/0.
 
         return actions.actions
+
+    def check_can_transef_power_next_unit(self, PREFIX, unit, actions, target_position, power_transfered: dict):
+        if unit.get_distance(target_position) == 1:
+            direction, move_to = self.get_straight_direction(unit, target_position)
+            if direction != 0 and move_to in self.unit_current_positions.keys():
+                unit_moving_on: lux.kit.Unit = self.unit_current_positions[move_to]
+                # if the unit is supposed to be there next turn and has power capacity
+                if unit_moving_on.battery_capacity_left() > 0 and move_to == self.unit_next_positions[
+                    unit_moving_on.unit_id]:
+                    # prx(PREFIX, "XXXXXXXXXXXXXXXXXX going on top of", unit_moving_on.unit_id)
+                    # prx(PREFIX, 'me ', unit.cargo, 'power', unit.battery_info())
+                    # prx(PREFIX, 'him', unit_moving_on.cargo, 'power', unit_moving_on.battery_info())
+                    power_given=min(unit.power, unit_moving_on.battery_capacity_left())
+                    actions.transfer_energy(unit, direction, power_given)
+                    if move_to in power_transfered:
+                        power_transfered[move_to] += power_given
+                    else:
+                        power_transfered[move_to] = power_given
+                    return True
+        return False
 
     def build_light_robot(self, actions, factory, t_prefix):
         actions.build_light(factory)
