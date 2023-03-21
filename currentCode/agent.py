@@ -24,7 +24,7 @@ def pr(*args, sep=' ', end='\n', force=False):  # print conditionally
 def prx(*args): pr(*args, force=True)
 
 def prc(*args):  # print conditionally
-    if (False and (('u_32' in args[0]) or ('unit_8' in args[0]))):
+    if (False and (('u_9' in args[0]) or ('u_33' in args[0]))):
         pr(*args, force=True)
 
 
@@ -386,10 +386,18 @@ class Agent():
                                                                                               adjactent_position_to_avoid,
                                                                                               closest_ice,
                                                                                               PREFIX)
-                                if direction != 0 and num_digs>0:
-                                    actions.set_new_actions(unit, unit_actions,PREFIX)
+
+                                prc(PREFIX, "Looking for ice, actively, found direction", direction, "to", new_pos,"num_digs", num_digs)
+
+                                if direction != 0 and num_digs > 0:
+                                    prc(PREFIX, "Try to go to target, direction", direction)
+                                    actions.set_new_actions(unit, unit_actions, PREFIX)
                                     self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
-                                    continue
+                                    # prx(PREFIX, "set next position ", new_pos)
+                                else:
+                                    prc(PREFIX, "Try to go to target, aborting")
+                                    actions.clear_action(unit, PREFIX)
+                                continue
 
                     else:
                         if on_factory:
@@ -413,13 +421,13 @@ class Agent():
 
                     if unit.cargo.ore < unit.cargo_space() \
                             and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home:
-                        # prx(PREFIX, "Looking for ore, actively")
+                        prc(PREFIX, "Looking for ore, actively")
                         # get closest ore
                         closest_ore, sorted_ore = self.get_map_distances(ore_locations, unit.pos)
 
                         # if we have reached the ore tile, start mining if possible
                         if np.all(closest_ore == unit.pos):
-                            # prx(PREFIX, "On ore, try to dig,",closest_ore)
+                            prc(PREFIX, "On ore, try to dig,",closest_ore)
                             if actions.can_dig(unit):
                                 actions.dig(unit)
                         else:
@@ -429,20 +437,22 @@ class Agent():
                                                                                                     closest_ore,
                                                                                                     PREFIX)
 
-                            # prx(PREFIX, "new ore direction ", direction)
-                            if direction == 0:
-                                actions.clear_action(unit, PREFIX)
-                                continue
+                            prc(PREFIX, "Looking for ore, actively, found direction", direction,"to",new_pos,"num_digs", num_digs)
 
-                            elif direction != 0 and num_digs > 0:
+                            if direction != 0 and num_digs > 0:
+                                prc(PREFIX, "Try to go to target, direction",direction)
                                 actions.set_new_actions(unit, unit_actions,PREFIX)
                                 self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
                                 # prx(PREFIX, "set next position ", new_pos)
-                                continue
+                            else:
+                                prc(PREFIX, "Try to go to target, aborting")
+                                actions.clear_action(unit, PREFIX)
+                            continue
 
 
                     else:
                         if on_factory:
+                            prc(PREFIX, "on base dropcargo_or_recharge")
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
