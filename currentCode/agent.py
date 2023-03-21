@@ -469,27 +469,26 @@ class Agent():
                                 direction = 0
                                 best_path = None
                                 max_range = unit.get_distance(closest_rubble) + 3
-
                                 for closest in sorted_rubble:
-                                    if best_path is not None and unit.get_distance(closest) > max_range:
-                                        break
-
+                                    if best_path is not None:
+                                        if unit.get_distance(closest) > max_range:
+                                            break
+                                        # performance shortcut, steps * min_cost = cost, then this is the perfect path, we can exit early
+                                        if best_path[4] == unit.get_distance(closest_rubble) and best_path[4] * unit.unit_cfg.MOVE_COST == best_path[5]:
+                                            # prx(PREFIX, "Found perfect path ", (best_path[5], best_path[4])," to ",closest)
+                                            break
                                     # direction, unit_actions, new_pos, num_digs, num_steps, cost
                                     path = self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, closest, PREFIX, one_way_only_and_dig=True)
-                                    this_direction = path[0]
-                                    this_steps = path[4]
-                                    this_cost = path[5]
-                                    if best_path is None:
-                                        best_path = path
-                                    elif (this_cost, this_steps) < (best_path[5], best_path[4]):
-                                        prx(PREFIX, "Chosen alternative path", (this_cost, this_steps), "instead of old ",(best_path[5], best_path[4]))
-                                        best_path = path
+                                    this_direction, a, b, c, this_steps, this_cost = path
+                                    if this_direction != 0:
+                                        if best_path is None:
+                                            best_path = path
+                                        elif (this_cost, this_steps) < (best_path[5], best_path[4]):
+                                            # prx(PREFIX, "Chosen alternative path", (this_cost, this_steps), "instead of old",(best_path[5], best_path[4])," to ",closest)
+                                            best_path = path
 
                                 if best_path is not None:
                                     direction, unit_actions, new_pos, num_digs, num_steps, cost = best_path
-
-
-                                # prx(PREFIX, "found", direction)
 
                                 # prx(PREFIX, "new ore direction ", direction)
                                 if direction == 0:
@@ -727,12 +726,11 @@ class Agent():
         return self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, destination,PREFIX=PREFIX, drop_ore=True,one_way_only_and_dig=one_way_only_and_dig)
 
     def get_complete_path(self, game_state, unit, turn, adjactent_position_to_avoid, destination, PREFIX=None, drop_ice=False, drop_ore=False,one_way_only_and_dig=False):
-        directions, opposite_directions, cost_to, cost_from, new_pos, num_steps, cost = self.get_one_way_path(game_state, unit, adjactent_position_to_avoid, destination, PREFIX)
-
+        directions, opposite_directions, cost, cost_from, new_pos, num_steps = self.get_one_way_path(game_state, unit, adjactent_position_to_avoid, destination, PREFIX)
 
         # set first direction
         if len(directions) >0:
-            unit_actions, number_digs = self.get_actions_sequence(game_state, unit, turn, directions, opposite_directions, cost_to,
+            unit_actions, number_digs = self.get_actions_sequence(game_state, unit, turn, directions, opposite_directions, cost,
                                                                   cost_from, drop_ice=drop_ice, drop_ore=drop_ore, PREFIX=PREFIX, one_way_only_and_dig=one_way_only_and_dig)
             direction = directions[0]
             return direction, unit_actions, new_pos, number_digs, num_steps, cost
@@ -743,7 +741,7 @@ class Agent():
 
         destination = np.array(destination)
         path = self.path_finder.get_shortest_path(unit.pos, destination,
-                                                           points_to_exclude=adjactent_position_to_avoid)
+                                                  points_to_exclude=adjactent_position_to_avoid)
         directions, opposite_directions = [], []
         cost_to, cost_from = 0, 0
         new_pos = unit.pos_location()
@@ -784,8 +782,10 @@ class Agent():
         # prx(PREFIX, "get_complete_path path from",opposite_directions)
         # prx(PREFIX, "get_complete_path path costs",cost_to,cost_from)
 
+        steps = len(path) -1
+        # prx(PREFIX, "path", steps, path)
 
-        return directions, opposite_directions, cost_to, cost_from, new_pos, len(path), cost_to
+        return directions, opposite_directions, cost_to, cost_from, new_pos, steps
 
     def get_actions_sequence(self, game_state, unit, turn, directions, opposite_directions, cost_to, cost_from, drop_ore=False, drop_ice=False, PREFIX=None, one_way_only_and_dig=False):
         DIG_COST = unit.unit_cfg.DIG_COST
