@@ -58,7 +58,8 @@ def run_ab(
     n_jobs: Optional[int] = None,
 ) -> ABResult:
     if n_jobs is None:
-        n_jobs = 10
+        n_jobs = 8
+    print("number of thread",n_jobs)
 
     assert rev_a.revision != rev_b.revision
 

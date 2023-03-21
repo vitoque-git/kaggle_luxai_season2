@@ -21,7 +21,7 @@ class Replay:
     @lru_cache()
     def data(self) -> Dict:
         assert self.path is not None
-        print (self.path)
+        # print (self.path)
         return json.load(open(self.path))
 
     @lru_cache()
