@@ -40,17 +40,17 @@ class Queue:
         else:
             return False
 
-    def is_move(a, direction):
+    def is_move(a, direction=None):
         if a is not None and len(a)>0:
-            return (a[0]==0 and a[1]==direction)
+            return (a[0]==0 and (direction is None or a[1]==direction))
         else:
             return False
 
     def is_next_queue_transfer_ore(unit: lux.kit.Unit):
         return Queue.is_transfer_ore(Queue.next_action(unit))
 
-    def is_next_queue_move(unit: lux.kit.Unit, direction):
-        return Queue.is_move(Queue.next_action(unit), direction)
+    def is_next_queue_move(unit: lux.kit.Unit, direction=None):
+        return Queue.is_move(Queue.next_action(unit), direction=direction)
 
     def is_transfer_ice(a):
         if a is not None and len(a)>0:
@@ -111,6 +111,14 @@ class Action_Queue():
             # already digging action, only cost for dig
             return unit.power >= unit.dig_cost()
 
+    def can_move(self, unit: lux.kit.Unit, game_state, direction):
+        if not Queue.is_next_queue_move(unit, direction):
+            # not already moving there, move cost + cost action queue cost
+            return unit.power >= (unit.move_cost(game_state, direction) + unit.action_queue_cost())
+        else:
+            # already moving there, only move cost
+            return unit.power >= unit.move_cost(game_state, direction)
+
     def dropcargo_or_recharge(self, unit: lux.kit.Unit):
         if unit.cargo.ore > 0 and not Queue.is_next_queue_transfer_ore(unit):
             if unit.power < unit.battery_capacity() * 0.1 and not Queue.is_next_queue_pickup(unit):
@@ -128,6 +136,14 @@ class Action_Queue():
             self.actions[unit.unit_id] = [Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power)]
 
     def set_new_actions(self, unit, unit_actions,PREFIX):
+        if len(unit_actions)>0 and Queue.has_queue(unit):
+            first_action = unit_actions[0]
+            if (Queue.is_dig(first_action) and Queue.is_next_queue_dig(unit)):
+                return
+            if (Queue.is_move(first_action) and Queue.is_next_queue_move(unit)):
+                if first_action[1] == unit.action_queue[0][1]:
+                    return
+
         if len(unit_actions)>20:
             prx(PREFIX,"Actions too long",len(unit_actions),"truncating")
             unit_actions = unit_actions[:20]
@@ -152,6 +168,7 @@ class Action_Queue():
             self.actions[unit.unit_id] = [unit.move(direction, repeat=False)]
 
     def clear_action(self, unit, PREFIX):
-        self.actions[unit.unit_id] = []
+        if Queue.has_queue(unit):
+            self.actions[unit.unit_id] = []
 
 

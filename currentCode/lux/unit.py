@@ -29,7 +29,7 @@ class Unit:
 
     def unit_id_short(self):
         if len(self.unit_type) > 4:
-            return self.unit_id[4:]
+            return 'u'+self.unit_id[4:]
         else:
             return self.unit_id
     @property
@@ -104,7 +104,7 @@ class Unit:
     def def_move_cost(self):
         return 1 if self.unit_type == "LIGHT" else 20
 
-    def rubble_dig_cost(self):
+    def rubble_dig_hurdle(self): #SEEMS SOMETHING SPECIFIC
         return 5 if self.unit_type == "LIGHT" else 100
 
     def pos_location(self):
@@ -117,9 +117,7 @@ class Unit:
     def get_distance_vector(self, points):
         return 2 * np.mean(np.abs(points - self.pos), 1)
 
-#THIS LOOKS WRONG 		
-    def can_dig(self, game_state):
-       return self.power > self.action_queue_cost() + self.dig_cost() + self.rubble_dig_cost()
+
 
 
     def __str__(self) -> str:
