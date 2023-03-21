@@ -459,7 +459,7 @@ class Agent():
                                 # prx(PREFIX,"dig ",rubble_map[unit.pos[0], unit.pos[1]])
                                 actions.dig(unit)
                         else:
-                            prx(PREFIX, "can dig, not on ruble, move to next ruble")
+                            # prx(PREFIX, "can dig, not on ruble, move to next ruble")
                             if len(rubble_locations) != 0:
 
                                 # see if in the straight direction there is a friendly unit
@@ -467,31 +467,28 @@ class Agent():
                                 #     break
 
                                 direction = 0
-                                old_r = None
+                                best_path = None
+                                max_range = unit.get_distance(closest_rubble) + 3
+
                                 for closest in sorted_rubble:
+                                    if best_path is not None and unit.get_distance(closest) > max_range:
+                                        break
+
                                     # direction, unit_actions, new_pos, num_digs, num_steps, cost
-                                    r = self.get_complete_path(game_state,unit, turn, adjactent_position_to_avoid, closest, PREFIX, one_way_only_and_dig=True)
-                                    this_direction = r[0]
-                                    this_steps = r[4]
-                                    this_cost = r[5]
-                                    found = False
-                                    if this_steps >= unit.get_distance(closest) + 3 and old_r is None:
-                                        prx(PREFIX, "try again", closest, 'distance', unit.get_distance(closest), 'steps',this_steps, 'cost',this_cost)
-                                        old_r = r
-                                        continue
-                                    elif this_direction != 0 and old_r is not None:
-                                        if old_r[5]< this_cost:
-                                            prx(PREFIX, "Will use previous path",old_r[5],"instead", this_cost)
-                                            direction, unit_actions, new_pos, num_digs, num_steps, cost = old_r
-                                            found = True
-                                        else:
-                                            prx(PREFIX, "Chosen alternative path", this_cost, "instead of old ", old_r[5])
-                                            direction, unit_actions, new_pos, num_digs, num_steps, cost = r
-                                            found = True
-                                    elif this_direction != 0:
-                                        direction, unit_actions, new_pos, num_digs, num_steps, cost = r
-                                        found = True
-                                    if found: break
+                                    path = self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, closest, PREFIX, one_way_only_and_dig=True)
+                                    this_direction = path[0]
+                                    this_steps = path[4]
+                                    this_cost = path[5]
+                                    if best_path is None:
+                                        best_path = path
+                                    elif (this_cost, this_steps) < (best_path[5], best_path[4]):
+                                        prx(PREFIX, "Chosen alternative path", (this_cost, this_steps), "instead of old ",(best_path[5], best_path[4]))
+                                        best_path = path
+
+                                if best_path is not None:
+                                    direction, unit_actions, new_pos, num_digs, num_steps, cost = best_path
+
+
                                 # prx(PREFIX, "found", direction)
 
                                 # prx(PREFIX, "new ore direction ", direction)
