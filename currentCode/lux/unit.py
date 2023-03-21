@@ -21,6 +21,17 @@ class Unit:
     unit_cfg: dict
     action_queue: List
 
+    def unit_type_short(self):
+        if len(self.unit_type)>0:
+            return self.unit_type[0]
+        else:
+            return ''
+
+    def unit_id_short(self):
+        if len(self.unit_type) > 4:
+            return self.unit_id[4:]
+        else:
+            return self.unit_id
     @property
     def agent_id(self):
         if self.team_id == 0: return "player_0"

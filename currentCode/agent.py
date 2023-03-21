@@ -270,7 +270,7 @@ class Agent():
         # UNIT LOOP
         for unit_id, unit in iter(sorted(units.items())):
 
-            PREFIX = t_prefix+" "+unit_id+ " "+ unit.unit_type+"("+str(unit.power)+") @"+str(unit.pos)
+            PREFIX = t_prefix + " " + unit.unit_type_short()+"("+str(unit.power)+") @"+str(unit.pos) + unit.unit_id_short()
 
             if unit_id not in self.bots_task.keys():
                 self.bots_task[unit_id] = ''
@@ -314,8 +314,6 @@ class Agent():
             else:
                 closest_factory_tile = factories[self.bot_factory[unit_id]].pos
             factory_belong = self.bot_factory[unit_id]
-
-            PREFIX = PREFIX + " " + factory_belong
 
             # UNIT TASK DECISION
             if unit.power < unit.action_queue_cost():
@@ -464,6 +462,7 @@ class Agent():
                             if len(rubble_locations) != 0:
 
                                 # see if in the straight direction there is a friendly unit
+                                # direction, move_to = self.get_straight_direction(unit, closest_rubble)
                                 # if direction != 0 and move_to in self.unit_current_positions.keys():
                                 #     unit_moving_on: lux.kit.Unit = self.unit_current_positions[move_to]
                                 #     if unit_moving_on.battery_capacity_left() > 0:
