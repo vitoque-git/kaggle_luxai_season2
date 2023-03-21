@@ -81,6 +81,12 @@ class Unit:
     def battery_capacity(self):
         return 150 if self.unit_type == "LIGHT" else 3000
 
+    def battery_capacity_left(self):
+        return self.battery_capacity() - self.power
+
+    def battery_info(self):
+        return "battery("+str(self.power)+"/"+str(self.battery_capacity())+" lft="+str(self.battery_capacity_left())+")"
+
     def cargo_space(self):
         return 100 if self.unit_type == "LIGHT" else 1000
 
