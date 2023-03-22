@@ -4,13 +4,14 @@ import networkx as nx
 from luxai_s2.env import LuxAI_S2
 import matplotlib.pyplot as plt
 import numpy as np
-
+from utils import *
 
 def pr(*args, sep=' ', end='\n', force=False):  # print conditionally
     if (True or force): # change first parameter to False to disable logging
         print(*args, sep=sep, file=sys.stderr)
 
 def prx(*args): pr(*args, force=True)
+
 
 class Path_Finder():
     def __init__(self) -> None:
@@ -25,21 +26,8 @@ class Path_Finder():
         opp_factories_areas = []
         for pos in opp_factories:
             # prx('city',pos)
-            Path_Finder.expand_point(opp_factories_areas, pos)
+            expand_point(opp_factories_areas, pos)
         return opp_factories_areas
-
-    def expand_point(opp_factories_areas, pos):
-        x = pos[0]
-        y = pos[1]
-        opp_factories_areas.append((x - 1, y - 1))
-        opp_factories_areas.append((x - 1, y))
-        opp_factories_areas.append((x - 1, y + 1))
-        opp_factories_areas.append((x, y - 1))
-        opp_factories_areas.append((x, y))
-        opp_factories_areas.append((x, y + 1))
-        opp_factories_areas.append((x + 1, y - 1))
-        opp_factories_areas.append((x + 1, y))
-        opp_factories_areas.append((x + 1, y + 1))
 
     def build_path(self,game_state,player,opp_player):
         opp_factories_areas = self.get_opp_factories_areas(game_state,opp_player)
@@ -179,8 +167,8 @@ def test():
     opp_factories_areas = []
 
     # prx('city',pos)
-    Path_Finder.expand_point(opp_factories_areas, (16, 21))
-    Path_Finder.expand_point(opp_factories_areas, (24, 24))
+    expand_point((16, 21))
+    expand_point((24, 24))
     st = time.time()
     pf._build_path(rubbles,opp_factories_areas)
     print('_build_path Execution time:', -1000*(st-time.time()), 'ms')
