@@ -22,9 +22,14 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (False and (('u_9' in args[0]) or ('u_33' in args[0]))):
+    if (False and (('u_13' in args[0]) or ('XXXXu_33' in args[0]))):
         pr(*args, force=True)
 
+#TODO
+#SOLVE
+# luxai-s2 ./_bots/v102b/main.py ./currentCode/main.py -o replay.json -v 10 -s 223786092
+# turn 316
+# unit_13 go L U instead of just U
 
 class Agent():
     def __init__(self, player: str, env_cfg: EnvConfig) -> None:
@@ -366,7 +371,7 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
-                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, turn, unit)
+                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_area, turn, unit)
                     continue
 
                 elif assigned_task == 'ore':
@@ -392,7 +397,7 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
-                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, turn, unit)
+                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_area, turn, unit)
                     continue
 
                 # RUBBLE
@@ -461,7 +466,7 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
-                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, turn, unit)
+                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_area, turn, unit)
                             continue
 
                 elif assigned_task == 'kill':
@@ -609,12 +614,13 @@ class Agent():
 
         prc(PREFIX, "Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs)
 
-        if actions.can_dig(unit) and unit.get_distance(closest_target) <= 3 and (closest_target[0], closest_target[1]) in self.unit_next_positions.values():
-            closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
-            if np.all(closest_rubble == unit.pos):
-                prc(PREFIX, "Resource is close", res_name, ", but busy,  dig, on ruble/lichen")
-                actions.dig(unit)
-                return
+        # FEATURE B
+        # if actions.can_dig(unit) and unit.get_distance(closest_target) <= 3 and (closest_target[0], closest_target[1]) in self.unit_next_positions.values():
+        #     closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
+        #     if np.all(closest_rubble == unit.pos):
+        #         prc(PREFIX, "Resource is close", res_name, ", but busy,  dig, on ruble/lichen")
+        #         actions.dig(unit)
+        #         return
 
         if direction != 0 and num_digs > 0:
             prc(PREFIX, "Try to go to target, direction", direction)
@@ -623,6 +629,7 @@ class Agent():
             # prx(PREFIX, "set next position ", new_pos)
         else:
             prc(PREFIX, "Try to go to target, aborting")
+            # FEATURE A
             if actions.can_dig(unit):
                 # check if we can dig ruble while we wait
                 closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
@@ -645,8 +652,7 @@ class Agent():
                 unit.action_queue_cost())
             actions.clear_action(unit, PREFIX)
         elif direction != 0:
-            prc(PREFIX, "Go home", direction, Queue.is_next_queue_move(unit, direction),
-                unit.move_cost(game_state, direction))
+            prc(PREFIX, "Go home", direction, Queue.is_next_queue_move(unit, direction), unit.move_cost(game_state, direction))
             actions.set_new_actions(unit, unit_actions, PREFIX)
             self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
             # prx(PREFIX, "set next position ", new_pos)
@@ -754,7 +760,7 @@ class Agent():
         #
         # >> > zip(l, l[1:])
         # [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6)]
-
+        # prx(path)
         # calculate directions
         if len(path) > 1:
             new_pos = path[1]
@@ -860,7 +866,7 @@ class Agent():
             unit_actions.append(Queue.action_transfer_ice(unit))
 
         # and recharge
-        unit_actions.append(Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power))
+        unit_actions.append(Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power, repeat=True))
         return unit_actions, number_digs
 
     def get_cost_to(self, game_state, unit, turn, adjactent_position_to_avoid, destination, PREFIX=None):
