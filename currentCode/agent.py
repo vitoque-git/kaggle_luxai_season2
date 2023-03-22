@@ -609,7 +609,12 @@ class Agent():
 
         prc(PREFIX, "Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs)
 
-
+        if actions.can_dig(unit) and unit.get_distance(closest_target) <= 3 and (closest_target[0], closest_target[1]) in self.unit_next_positions.values():
+            closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
+            if np.all(closest_rubble == unit.pos):
+                prc(PREFIX, "Resource is close", res_name, ", but busy,  dig, on ruble/lichen")
+                actions.dig(unit)
+                return
 
         if direction != 0 and num_digs > 0:
             prc(PREFIX, "Try to go to target, direction", direction)
