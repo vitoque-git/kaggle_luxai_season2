@@ -45,7 +45,7 @@ class Agent():
         self.factory_queue = {}
         self.move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
         self.built_robots = []
-        self.unit_next_positions = {}
+        self.unit_next_positions = {}  # index unit id
 
         self.G = nx.Graph()
         self.path_finder = Path_Finder()
@@ -384,7 +384,7 @@ class Agent():
                     if unit.cargo.ore < unit.cargo_space() and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home:
 
                         self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
-                                                  ore_locations,'ore', drop_ore=True)
+                                                  ore_locations, 'ore', drop_ore=True)
 
                     else:
                         if on_factory:
@@ -589,27 +589,28 @@ class Agent():
 
     def dig_or_go_to_resouce(self, PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                              target_locations, res_name='', drop_ice=False, drop_ore=False):
-        prc(PREFIX, "Looking for",res_name,"actively")
+        prc(PREFIX, "Looking for", res_name, "actively")
         # get closest resource
         closest_resource, sorted_resources = get_map_distances(target_locations, unit.pos)
         # if we have reached the ore tile, start mining if possible
         if np.all(closest_resource == unit.pos):
-            prc(PREFIX, "On ",res_name,", try to dig,", closest_resource)
+            prc(PREFIX, "On ", res_name, ", try to dig,", closest_resource)
             if actions.can_dig(unit):
                 actions.dig(unit)
         else:
             self.get_resource_and_dig(PREFIX, game_state, actions, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                                       closest_resource, res_name, drop_ice=drop_ice, drop_ore=drop_ore)
 
-    def get_resource_and_dig(self, PREFIX, game_state, actions, adjactent_position_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
+    def get_resource_and_dig(self, PREFIX, game_state, actions, adjactent_position_to_avoid, turn, unit: lux.kit.Unit, rubble_and_opposite_lichen_locations,
                              closest_target, res_name='', drop_ice=False, drop_ore=False):
         direction, unit_actions, new_pos, num_digs, num_steps, cost = self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid,
                                                                                              closest_target,
                                                                                              PREFIX, drop_ice=drop_ice, drop_ore=drop_ore)
 
-
-
         prc(PREFIX, "Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs)
+
+
+
         if direction != 0 and num_digs > 0:
             prc(PREFIX, "Try to go to target, direction", direction)
             actions.set_new_actions(unit, unit_actions, PREFIX)
@@ -617,6 +618,14 @@ class Agent():
             # prx(PREFIX, "set next position ", new_pos)
         else:
             prc(PREFIX, "Try to go to target, aborting")
+            if actions.can_dig(unit):
+                # check if we can dig ruble while we wait
+                closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
+                if np.all(closest_rubble == unit.pos):
+                    prc(PREFIX, "Was going for", res_name, "but cannot,  dig, on ruble/lichen")
+                    actions.dig(unit)
+                    return
+            # else
             actions.clear_action(unit, PREFIX)
         return direction, new_pos, unit_actions
 
