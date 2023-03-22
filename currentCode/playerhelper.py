@@ -1,0 +1,61 @@
+import numpy as np
+
+from utils import expand_point
+
+
+class PlayerHelper():
+    def __init__(self) -> None:
+        # Initial loop to set present and future locations of units
+        self.unit_next_positions = {}  # index unit id, payload position
+        self.unit_current_positions = {}  # index position, payload unit object
+        self.light_current_positions = {}  # index position, payload unit object
+        self.heavy_current_positions = {}  # index position, payload unit object
+
+        self.factory_positions = {}  # index position, payload factory
+        self.factory_areas = [] #list of positions
+        self.lichen_locations = {} # NP of loc
+
+    def set_player(self,game_state, player):
+        units = game_state.units[player]
+        factories = game_state.factories[player]
+
+        self.__init__() #reset everything
+
+        for unit_id, unit in iter(sorted(units.items())):
+            # default next position to current position, we will modify then in case of movements
+            self.unit_next_positions[unit.unit_id] = unit.pos_location()
+            self.unit_current_positions[unit.pos_location()] = unit
+            if unit.unit_type == "HEAVY":
+                self.heavy_current_positions[unit.pos_location()] = unit
+            else:
+                self.light_current_positions[unit.pos_location()] = unit
+
+        for unit_id, factory in factories.items():
+            self.factory_positions[factory.unit_id] = factory.pos_location()
+            expand_point(self.factory_areas, factory.pos)
+            if len(self.lichen_locations) == 0:
+                self.lichen_locations = np.argwhere(game_state.board.lichen_strains == factory.strain_id)
+            else:
+                newarray = np.argwhere(game_state.board.lichen_strains == factory.strain_id)
+                if len(newarray) > 0:
+                    self.lichen_locations = np.vstack((self.lichen_locations, newarray))
+
+
+
+    def get_unit_positions(self):
+        return self.unit_current_positions.keys()
+
+    def get_light_positions(self):
+        return self.light_current_positions.keys()
+
+    def get_heavy_positions(self):
+        return self.heavy_current_positions.keys()
+
+    def get_unit_next_positions(self):
+        return self.unit_next_positions.values()
+
+    def get_unit_from_current_position(self, pos):
+        return self.unit_current_positions[pos]
+
+    def set_unit_next_position(self,unit_id, new_pos):
+        self.unit_next_positions[unit_id] = (new_pos[0], new_pos[1])

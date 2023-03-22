@@ -1,8 +1,12 @@
 import math
+
+from numpy import dtype
+
 from action import *
 from path_finder import *
 from lux.kit import obs_to_game_state, GameState, EnvConfig
 from lux.utils import my_turn_to_place_factory
+from playerhelper import PlayerHelper
 from utils import *
 import sys
 import numpy as np
@@ -44,16 +48,17 @@ class Agent():
         }
 
         self.bots_task = {}
-        self.botpos = []
         self.bot_factory = {}
         self.factory_bots = {}
         self.factory_queue = {}
         self.move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
         self.built_robots = []
-        self.unit_next_positions = {}  # index unit id
 
         self.G = nx.Graph()
         self.path_finder = Path_Finder()
+
+        self.me = PlayerHelper()
+        self.him = PlayerHelper()
 
     def early_setup(self, step: int, obs, remainingOverageTime: int = 60):
         '''
@@ -182,6 +187,7 @@ class Agent():
         self.path_finder.build_path(game_state, self.player, self.opp_player)
         actions = Action_Queue(game_state)
         state_obs = obs
+        power_transfered = {}  # index is position
 
         turn = obs["real_env_steps"]
 
@@ -189,15 +195,14 @@ class Agent():
         t_prefix = "T_" + str(turn)
         turn_left = 1001 - turn
 
-        # Unit locations
-        self.unit_locations, self.botpos, self.botposheavy, self.opp_botpos, self.opp_bbotposheavy = self.get_unit_locations(game_state)
+        # unit positions
+        self.me.set_player(game_state, self.player)
+        self.him.set_player(game_state, self.opp_player)
 
         # Build Robots
         factories = game_state.factories[self.player]
-        factory_tiles, factory_units, factory_ids, factory_areas = [], [], [], []
+        factory_tiles, factory_ids = [], []
         self.built_robots = []
-        self.unit_next_positions = {}  # index unit id
-        self.unit_current_positions = {}  # index position
 
         # FACTORY LOOP
         for factory_id, factory in factories.items():
@@ -214,8 +219,6 @@ class Agent():
                 self.factory_queue[factory_id] = []
 
             factory_tiles += [factory.pos]
-            expand_point(factory_areas, factory.pos)
-            factory_units += [factory]
             factory_ids += [factory_id]
 
         factory_tiles = np.array(factory_tiles)  # Factory locations (to go back to)
@@ -229,17 +232,6 @@ class Agent():
         ore_map = game_state.board.ore
         rubble_map = game_state.board.rubble
 
-        # prx(t_prefix,'lichen',lichen_strain_map)
-        opp_strain = [f.strain_id for _, f in game_state.factories[self.opp_player].items()]
-        lichen_opposite_locations = []
-        for strain in opp_strain:
-            if len(lichen_opposite_locations) == 0:
-                lichen_opposite_locations = np.argwhere(game_state.board.lichen_strains == strain)
-            else:
-                newarray = np.argwhere(game_state.board.lichen_strains == strain)
-                if len(newarray) > 0:
-                    lichen_opposite_locations = np.vstack((lichen_opposite_locations, newarray))
-
         ice_locations_all = np.argwhere(ice_map >= 1)  # numpy position of every ice tile
         ore_locations_all = np.argwhere(ore_map >= 1)  # numpy position of every ore tile
         rubble_locations_all = np.argwhere(rubble_map >= 1)  # numpy position of every rubble tile
@@ -248,16 +240,9 @@ class Agent():
         ore_locations = ore_locations_all
         rubble_locations = rubble_locations_all
 
-        rubble_and_opposite_lichen_locations = np.vstack((rubble_locations, lichen_opposite_locations))
+        rubble_and_opposite_lichen_locations = np.vstack((rubble_locations, self.him.lichen_locations))
 
-        # Initial loop to set present and future locations of units
-        self.unit_next_positions = {}
-        self.unit_current_positions = {}
-        power_transfered = {}  # index is position
-        for unit_id, unit in iter(sorted(units.items())):
-            # default next position to current position, we will modify then in case of movements
-            self.unit_next_positions[unit.unit_id] = unit.pos_location()
-            self.unit_current_positions[unit.pos_location()] = unit
+
 
         # UNIT LOOP
         for unit_id, unit in iter(sorted(units.items())):
@@ -267,41 +252,31 @@ class Agent():
             if unit_id not in self.bots_task.keys():
                 self.bots_task[unit_id] = ''
 
-            if len(self.opp_botpos) != 0:
-                opp_pos = np.array(self.opp_botpos).reshape(-1, 2)
-                opponent_unit_distances = get_distance_vector(unit.pos, opp_pos)
-                opponent_min_distance = np.min(opponent_unit_distances)
-                opponent_pos_min_distance = opp_pos[np.argmin(opponent_unit_distances)]
+            if len(self.him.get_unit_positions()) != 0:
+                opp_pos = np.array(list(self.him.get_unit_positions()), dtype=dtype)
+                opponent_unit_distances, opponent_min_distance, opponent_pos_min_distance = self.get_distances_info(unit.pos, opp_pos)
 
-            if len(self.opp_bbotposheavy) != 0:
-                opp_heavy_pos = np.array(self.opp_bbotposheavy).reshape(-1, 2)
-                opponent_heavy_unit_distances = get_distance_vector(unit.pos, opp_heavy_pos)
-                opponent_heavy_min_distance = np.min(opponent_heavy_unit_distances)
-                opponent_heavy_pos_min_distance = opp_heavy_pos[np.argmin(opponent_heavy_unit_distances)]
+            if len(self.him.get_heavy_positions()) != 0:
+                opp_heavy_pos = np.array(list(self.him.get_heavy_positions()), dtype=dtype)
+                opponent_heavy_unit_distances, opponent_heavy_min_distance, opponent_heavy_pos_min_distance = self.get_distances_info(unit.pos, opp_heavy_pos)
 
             on_factory = False
             factory_min_distance = 10000
             if len(factory_tiles) > 0:
-                factory_unit_distances = get_distance_vector(unit.pos, factory_areas)
-                distance_to_factory = np.min(factory_unit_distances)
-                closest_factory_area = factory_areas[np.argmin(factory_unit_distances)]
+                factory_unit_distances, distance_to_factory, closest_factory_area = self.get_distances_info(unit.pos, self.me.factory_areas)
                 on_factory = distance_to_factory == 0
                 # prx(t_prefix,'-----------------------')
-                # prx(t_prefix,'factory_areas',factory_areas)
+                # prx(t_prefix,'factory_areas',self.me.factory_areas)
                 # prx(t_prefix,'factory_unit_distances',factory_unit_distances)
                 # prx(t_prefix,'distance_to_factory',distance_to_factory)
                 # prx(t_prefix,'closest_factory_area',closest_factory_area)
                 # prx(t_prefix,'closest_factory_area',closest_factory_area)
 
-            if unit_id not in self.bot_factory.keys():
-                factory_distances = get_distance_vector(unit.pos, factory_tiles)
+            if unit_id not in self.bot_factory.keys() \
+                    or self.bot_factory[unit_id] not in factory_ids:
+
+                factory_distances, min_index, closest_factory_tile = self.get_distances_info(unit.pos, factory_tiles)
                 min_index = np.argmin(factory_distances)
-                closest_factory_tile = factory_tiles[min_index]
-                self.bot_factory[unit_id] = factory_ids[min_index]
-            elif self.bot_factory[unit_id] not in factory_ids:
-                factory_distances = get_distance_vector(unit.pos, factory_tiles)
-                min_index = np.argmin(factory_distances)
-                closest_factory_tile = factory_tiles[min_index]
                 self.bot_factory[unit_id] = factory_ids[min_index]
             else:
                 closest_factory_tile = factories[self.bot_factory[unit_id]].pos
@@ -331,7 +306,9 @@ class Agent():
                     self.factory_bots[factory_belong][t].append(unit_id)
 
                 assigned_task = self.bots_task[unit_id]
-                if len(self.opp_botpos) != 0 and opponent_min_distance == 1 and unit.unit_type == "HEAVY" and assigned_task != "kill":
+                if len(self.him.get_unit_positions()) != 0 and opponent_min_distance == 1 \
+                        and unit.unit_type == "HEAVY" \
+                        and assigned_task != "kill":
                     assigned_task = "kill"
                     prx(PREFIX, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarly tasked as', assigned_task, opponent_pos_min_distance,
                         opponent_min_distance)
@@ -343,7 +320,7 @@ class Agent():
                     assigned_task = self.bots_task[unit_id]
 
                 positions_to_avoid = []
-                for p in self.unit_next_positions.values():
+                for p in self.me.get_unit_next_positions():
                     if get_distance(unit.pos_location(), p) == 1:
                         positions_to_avoid.append(p)
                     # if len(positions_to_avoid)>0:
@@ -455,7 +432,7 @@ class Agent():
 
                                 elif direction != 0:
                                     actions.set_new_actions(unit, unit_actions, PREFIX)
-                                    self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
+                                    self.me.set_unit_next_position(unit.unit_id, new_pos)
                                     # prx(PREFIX, "set next position ", new_pos)
                                     continue
 
@@ -471,10 +448,10 @@ class Agent():
 
                 elif assigned_task == 'kill':
 
-                    if len(self.opp_botpos) == 0:
-                        if len(lichen_opposite_locations) > 0:
+                    if len(self.him.get_unit_positions()) == 0:
+                        if len(self.him.lichen_locations) > 0:
                             # compute the distance to each rubble tile from this unit and pick the closest
-                            closest_opposite_lichen, sorted_opp_lichen = get_map_distances(lichen_opposite_locations, unit.pos)
+                            closest_opposite_lichen, sorted_opp_lichen = get_map_distances(self.him.lichen_locations, unit.pos)
 
                             # if we have reached the lichen tile, start mining if possible
                             if np.all(closest_opposite_lichen == unit.pos):
@@ -483,7 +460,7 @@ class Agent():
                                     actions.dig(unit)
                             else:
                                 direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, closest_opposite_lichen)
-                    if len(self.opp_botpos) != 0:
+                    if len(self.him.get_unit_positions()) != 0:
                         if opponent_min_distance == 1:
                             direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, np.array(opponent_pos_min_distance))
 
@@ -513,12 +490,12 @@ class Agent():
                     actions.move(unit, direction)
                     # new position
                     new_pos = np.array(unit.pos) + self.move_deltas[direction]
-                    # prc(PREFIX,'move to ', direction, (new_pos[0],new_pos[1]) in self.unit_next_positions.values())
-                    self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
+                    # prc(PREFIX,'move to ', direction, (new_pos[0],new_pos[1]) in self.me.get_unit_next_positions())
+                    self.me.set_unit_next_position(unit.unit_id, new_pos)
                 else:
                     # not moving
-                    # prx(PREFIX, 'Not moving, remove node ', unit.pos, unit.pos_location() in self.unit_next_positions.values())
-                    self.unit_next_positions[unit.unit_id] = unit.pos_location()
+                    # prx(PREFIX, 'Not moving, remove node ', unit.pos, unit.pos_location() in self.me.get_unit_next_positions())
+                    self.me.set_unit_next_position(unit_id, unit.pos_location())
 
         # FACTORY LOOP
         for factory_id, factory in factories.items():
@@ -549,7 +526,7 @@ class Agent():
                 # BUILD ROBOT ENTRY POINT
                 if new_task is not None:
                     # Check we are not building on top of another unit
-                    if (factory.pos[0], factory.pos[1]) in self.unit_next_positions.values():
+                    if (factory.pos[0], factory.pos[1]) in self.me.get_unit_next_positions():
                         pr(t_prefix, factory.unit_id, "Cannot build robot, already an unit present", factory.pos)
                         continue
 
@@ -592,6 +569,12 @@ class Agent():
 
         return actions.actions
 
+    def get_distances_info(self, pos, position_vector):
+        distances = get_distance_vector(pos, position_vector)
+        min_distance = np.min(distances)
+        pos_min_distance = position_vector[np.argmin(distances)]
+        return distances, min_distance, pos_min_distance
+
     def dig_or_go_to_resouce(self, PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                              target_locations, res_name='', drop_ice=False, drop_ore=False):
         prc(PREFIX, "Looking for", res_name, "actively")
@@ -615,7 +598,7 @@ class Agent():
         prc(PREFIX, "Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs)
 
         # FEATURE B
-        if actions.can_dig(unit) and unit.get_distance(closest_target) <= 3 and (closest_target[0], closest_target[1]) in self.unit_next_positions.values():
+        if actions.can_dig(unit) and unit.get_distance(closest_target) <= 3 and (closest_target[0], closest_target[1]) in self.me.get_unit_next_positions():
             closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
             if np.all(closest_rubble == unit.pos):
                 prc(PREFIX, "Resource is close", res_name, ", but busy,  dig, on ruble/lichen")
@@ -625,7 +608,7 @@ class Agent():
         if direction != 0 and num_digs > 0:
             prc(PREFIX, "Try to go to target, direction", direction)
             actions.set_new_actions(unit, unit_actions, PREFIX)
-            self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
+            self.me.set_unit_next_position(unit.unit_id, new_pos)
             # prx(PREFIX, "set next position ", new_pos)
         else:
             prc(PREFIX, "Try to go to target, aborting")
@@ -654,18 +637,17 @@ class Agent():
         elif direction != 0:
             prc(PREFIX, "Go home", direction, Queue.is_next_queue_move(unit, direction), unit.move_cost(game_state, direction))
             actions.set_new_actions(unit, unit_actions, PREFIX)
-            self.unit_next_positions[unit.unit_id] = (new_pos[0], new_pos[1])
+            self.me.set_unit_next_position(unit.unit_id, new_pos)
             # prx(PREFIX, "set next position ", new_pos)
         return direction, new_pos, unit_actions
 
     def check_can_transef_power_next_unit(self, PREFIX, unit, actions, target_position, power_transfered: dict):
         if unit.get_distance(target_position) == 1:
             direction, move_to = get_straight_direction(unit, target_position)
-            if direction != 0 and move_to in self.unit_current_positions.keys():
-                unit_moving_on: lux.kit.Unit = self.unit_current_positions[move_to]
+            if direction != 0 and move_to in self.me.get_unit_positions():
+                unit_moving_on: lux.kit.Unit = self.me.get_unit_from_current_position(move_to)
                 # if the unit is supposed to be there next turn and has power capacity
-                if unit_moving_on.battery_capacity_left() > 0 and move_to == self.unit_next_positions[
-                    unit_moving_on.unit_id]:
+                if unit_moving_on.battery_capacity_left() > 0 and move_to == self.me.unit_next_positions[unit_moving_on.unit_id]:
                     # prx(PREFIX, "going on top of", unit_moving_on.unit_id)
                     # prx(PREFIX, 'me ', unit.cargo, 'power', unit.battery_info())
                     # prx(PREFIX, 'him', unit_moving_on.cargo, 'power', unit_moving_on.battery_info())
@@ -689,28 +671,9 @@ class Agent():
     def built_robot(self, factory, type, t_prefix):
         pr(t_prefix, factory.unit_id, "Build", type, "robot in", factory.pos)
         self.built_robots.append(factory.pos_location())
-        self.unit_next_positions[factory.unit_id] = factory.pos_location()
+        self.me.set_unit_next_position(factory.unit_id,factory.pos_location())
 
-    def get_unit_locations(self, game_state):
-        bot_positions = []
-        botpos = {}
-        botposheavy = {}
-        opp_botpos = []
-        opp_botposheavy = []
-        for player in [self.player, self.opp_player]:
-            for unit_id, unit in game_state.units[player].items():
 
-                if player == self.player:
-                    botpos[unit_id] = str(unit.pos)
-                    bot_positions.append((unit.pos[0], unit.pos[1]))
-                    if unit.unit_type == "HEAVY":
-                        botposheavy[unit_id] = str(unit.pos)
-                else:
-                    opp_botpos.append(unit.pos)
-                    if unit.unit_type == "HEAVY":
-                        opp_botposheavy.append(unit.pos)
-
-        return bot_positions, botpos, botposheavy, opp_botpos, opp_botposheavy
 
     def get_direction(self, game_state, unit, positions_to_avoid, destination, PREFIX=None):
 
@@ -902,7 +865,7 @@ class Agent():
         for direction, delta in move_deltas_real:
             new_pos = np.array(unit.pos) + delta
             # prc(PREFIX,"try random ",new_pos)
-            if not (new_pos[0], new_pos[1]) in self.unit_next_positions.values():
+            if not (new_pos[0], new_pos[1]) in self.me.get_unit_next_positions():
                 return direction
 
         return 0
