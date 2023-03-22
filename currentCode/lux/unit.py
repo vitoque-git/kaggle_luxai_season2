@@ -117,9 +117,6 @@ class Unit:
     def get_distance_vector(self, points):
         return 2 * np.mean(np.abs(points - self.pos), 1)
 
-
-
-
     def __str__(self) -> str:
         out = f"[{self.team_id}] {self.unit_id} {self.unit_type} at {self.pos}"
         return out

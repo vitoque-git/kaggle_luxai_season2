@@ -2,6 +2,7 @@ import math
 
 from numpy import dtype
 
+import lux.unit
 from action import *
 from path_finder import *
 from lux.kit import obs_to_game_state, GameState, EnvConfig
@@ -26,7 +27,7 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (False and (('u_13' in args[0]) or ('XXXXu_33' in args[0]))):
+    if (False and (('u_11' in args[0]) or ('XXXXu_33' in args[0]))):
         pr(*args, force=True)
 
 #TODO
@@ -242,8 +243,6 @@ class Agent():
 
         rubble_and_opposite_lichen_locations = np.vstack((rubble_locations, self.him.lichen_locations))
 
-
-
         # UNIT LOOP
         for unit_id, unit in iter(sorted(units.items())):
 
@@ -259,6 +258,10 @@ class Agent():
             if len(self.him.get_heavy_positions()) != 0:
                 opp_heavy_pos = np.array(list(self.him.get_heavy_positions()), dtype=dtype)
                 opponent_heavy_unit_distances, opponent_heavy_min_distance, opponent_heavy_pos_min_distance = self.get_distances_info(unit.pos, opp_heavy_pos)
+
+            if len(self.him.get_light_positions()) != 0:
+                opp_light_pos = np.array(list(self.him.get_light_positions()), dtype=dtype)
+                opponent_light_unit_distances, opponent_light_min_distance, opponent_light_pos_min_distance = self.get_distances_info(unit.pos, opp_light_pos)
 
             on_factory = False
             factory_min_distance = 10000
@@ -306,11 +309,11 @@ class Agent():
                     self.factory_bots[factory_belong][t].append(unit_id)
 
                 assigned_task = self.bots_task[unit_id]
-                if len(self.him.get_unit_positions()) != 0 and opponent_min_distance == 1 \
-                        and unit.unit_type == "HEAVY" \
+                if (len(self.him.get_unit_positions()) != 0 and opponent_min_distance == 1 and unit.unit_type == "HEAVY") \
+                    or (len(self.him.get_light_positions()) != 0 and opponent_light_min_distance == 1) \
                         and assigned_task != "kill":
                     assigned_task = "kill"
-                    prx(PREFIX, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarly tasked as', assigned_task, opponent_pos_min_distance,
+                    prx(PREFIX, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarily tasked as', assigned_task, opponent_pos_min_distance,
                         opponent_min_distance)
 
                 if turn_left < 200 and assigned_task == "ore":
@@ -326,6 +329,12 @@ class Agent():
                     # if len(positions_to_avoid)>0:
                     #     prx(PREFIX," need to avoid first moves to ", positions_to_avoid)
 
+                if unit.unit_type == 'LIGHT':
+                    if get_distance(unit.pos_location(), p) == 1:
+                        for p in self.him.get_heavy_positions():
+                            positions_to_avoid.append(p)
+
+
                 # prc(PREFIX, unit.pos, 'task=' + assigned_task, unit.cargo)
                 if assigned_task == "ice":
                     cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid, closest_factory_area)
@@ -335,7 +344,7 @@ class Agent():
                     # prx(PREFIX, 'Queue.real_cost_dig(unit)',Queue.real_cost_dig(unit))
                     # prx(PREFIX, ' 1=== ',unit.cargo.ice < unit.cargo_space())
                     # prx(PREFIX, ' 2=== ', unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home)
-                    # if turn == 49: a=5/.0
+                    # if turn == 5: a=5/.0
 
                     if unit.cargo.ice < unit.cargo_space() \
                             and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home:
@@ -348,7 +357,7 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
-                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_area, turn, unit)
+                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
                     continue
 
                 elif assigned_task == 'ore':
@@ -374,7 +383,7 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
-                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_area, turn, unit)
+                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
                     continue
 
                 # RUBBLE
@@ -443,37 +452,61 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
-                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_area, turn, unit)
+                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
                             continue
 
                 elif assigned_task == 'kill':
 
-                    if len(self.him.get_unit_positions()) == 0:
+                    if (unit.unit_type == 'HEAVY' and len(self.him.get_unit_positions()) == 0) or \
+                            (unit.unit_type == 'LIGHT' and len(self.him.get_light_positions()) == 0):
+                        # no enemy we can kill
+                        prc(PREFIX, "Kill no nemy to kill", 'all=',len(self.him.get_unit_positions()), 'lights=',len(self.him.get_unit_positions()))
                         if len(self.him.lichen_locations) > 0:
-                            # compute the distance to each rubble tile from this unit and pick the closest
-                            closest_opposite_lichen, sorted_opp_lichen = get_map_distances(self.him.lichen_locations, unit.pos)
+                            self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, [],  self.him.lichen_locations, 'opponent lichen')
+                            continue
 
-                            # if we have reached the lichen tile, start mining if possible
-                            if np.all(closest_opposite_lichen == unit.pos):
-                                if unit.power >= unit.dig_cost() + \
-                                        unit.action_queue_cost():
-                                    actions.dig(unit)
+                    else:
+                        if unit.unit_type == 'HEAVY':
+                            target = (opponent_pos_min_distance[0],opponent_pos_min_distance[1])
+                        else:
+                            target = (opponent_light_pos_min_distance[0], opponent_light_pos_min_distance[1])
+                        enemy: lux.unit.Unit = self.him.get_unit_from_current_position(target)
+                        prc(PREFIX, "Kill", target, enemy.unit_id, enemy.unit_type, enemy.power)
+                        if on_factory and opponent_min_distance > 2:
+                            direction, new_pos = get_straight_direction(unit, target)
+                            prc(PREFIX, "Kill, on factory, going", direction, new_pos)
+                            prc(PREFIX, 'position to avoid', positions_to_avoid)
+                            direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, new_pos)
+                        elif opponent_min_distance == 1:
+                            direction, new_pos = get_straight_direction(unit, target)
+                            prc(PREFIX, "Kill, next to target, going", direction, new_pos)
+                            if direction == 0:
+                                # GO HOME
+                                prc(PREFIX, "Kill, next to target, abort, going home")
+                                self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                                continue
                             else:
-                                direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, closest_opposite_lichen)
-                    if len(self.him.get_unit_positions()) != 0:
-                        if opponent_min_distance == 1:
-                            direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, np.array(opponent_pos_min_distance))
-
+                                if enemy.power < unit.power:
+                                    direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, new_pos)
+                                else:
+                                    prc(PREFIX, "Kill, next to target, abort, he has more power:",enemy.power)
+                                    positions_to_avoid.append(enemy.pos_location())
+                                    self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                                    continue
                         else:
                             if unit.power > unit.action_queue_cost():
-                                direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, np.array(opponent_pos_min_distance))
+                                prc(PREFIX, "Kill, Seeking enemy", np.array(target))
+                                direction, new_pos, unit_actions = self.go_to_target(PREFIX, game_state, actions, positions_to_avoid, turn, unit, np.array(target))
                             else:
                                 if on_factory:
                                     actions.dropcargo_or_recharge(unit)
-                                    direction = 0
                                 else:
-                                    direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, closest_factory_tile)
-                        prc(PREFIX, 'kill', opponent_pos_min_distance, 'd=', direction, 'cost=', move_cost)
+                                    # GO HOME
+                                    prc(PREFIX, "Kill, going home")
+                                    self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                            continue
+
+                        prc(PREFIX, "Kill, direction", direction)
 
                 if move_cost is not None and direction == 0:
                     # prc(PREFIX, 'cannot find a path')
@@ -490,11 +523,12 @@ class Agent():
                     actions.move(unit, direction)
                     # new position
                     new_pos = np.array(unit.pos) + self.move_deltas[direction]
-                    # prc(PREFIX,'move to ', direction, (new_pos[0],new_pos[1]) in self.me.get_unit_next_positions())
+                    prc(PREFIX,'move to ', direction, (new_pos[0],new_pos[1]) in self.me.get_unit_next_positions())
                     self.me.set_unit_next_position(unit.unit_id, new_pos)
                 else:
                     # not moving
-                    # prx(PREFIX, 'Not moving, remove node ', unit.pos, unit.pos_location() in self.me.get_unit_next_positions())
+                    prc(PREFIX, 'Not moving, remove node ', unit.pos, unit.pos_location() in self.me.get_unit_next_positions())
+                    actions.clear_action(unit, PREFIX)
                     self.me.set_unit_next_position(unit_id, unit.pos_location())
 
         # FACTORY LOOP
@@ -589,23 +623,38 @@ class Agent():
             self.get_resource_and_dig(PREFIX, game_state, actions, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                                       closest_resource, res_name, drop_ice=drop_ice, drop_ore=drop_ore)
 
+    def go_to_target(self, PREFIX, game_state, actions, adjactent_position_to_avoid, turn, unit: lux.kit.Unit, closest_target):
+        direction, unit_actions, new_pos, num_digs, num_steps, cost = self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid,
+                                                                                             closest_target,PREFIX, one_way_only=True)
+        prc(PREFIX, "go_to_target, found direction", direction, "to", new_pos)
+        if direction != 0 and actions.can_move(unit, game_state, direction) :
+            prc(PREFIX, "Try to go to target, direction", direction)
+            actions.set_new_actions(unit, unit_actions, PREFIX)
+            self.me.set_unit_next_position(unit.unit_id, new_pos)
+            # prx(PREFIX, "set next position ", new_pos)
+        else:
+            prc(PREFIX, "Try to go to target, aborting")
+            actions.clear_action(unit, PREFIX)
+        return direction, new_pos, unit_actions
+
     def get_resource_and_dig(self, PREFIX, game_state, actions, adjactent_position_to_avoid, turn, unit: lux.kit.Unit, rubble_and_opposite_lichen_locations,
                              closest_target, res_name='', drop_ice=False, drop_ore=False):
         direction, unit_actions, new_pos, num_digs, num_steps, cost = self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid,
                                                                                              closest_target,
                                                                                              PREFIX, drop_ice=drop_ice, drop_ore=drop_ore)
 
-        prc(PREFIX, "Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs)
+        prc(PREFIX, "get_resource_and_dig Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs)
 
         # FEATURE B
-        if actions.can_dig(unit) and unit.get_distance(closest_target) <= 3 and (closest_target[0], closest_target[1]) in self.me.get_unit_next_positions():
+        if len(rubble_and_opposite_lichen_locations) > 0 \
+                and actions.can_dig(unit) and unit.get_distance(closest_target) <= 3 and (closest_target[0], closest_target[1]) in self.me.get_unit_next_positions():
             closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
             if np.all(closest_rubble == unit.pos):
                 prc(PREFIX, "Resource is close", res_name, ", but busy,  dig, on ruble/lichen")
                 actions.dig(unit)
                 return
 
-        if direction != 0 and num_digs > 0:
+        if direction != 0 and actions.can_move(unit, game_state, direction) and num_digs > 0:
             prc(PREFIX, "Try to go to target, direction", direction)
             actions.set_new_actions(unit, unit_actions, PREFIX)
             self.me.set_unit_next_position(unit.unit_id, new_pos)
@@ -613,7 +662,7 @@ class Agent():
         else:
             prc(PREFIX, "Try to go to target, aborting")
             # FEATURE A
-            if actions.can_dig(unit):
+            if len(rubble_and_opposite_lichen_locations) > 0 and actions.can_dig(unit):
                 # check if we can dig ruble while we wait
                 closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
                 if np.all(closest_rubble == unit.pos):
@@ -624,16 +673,19 @@ class Agent():
             actions.clear_action(unit, PREFIX)
         return direction, new_pos, unit_actions
 
-    def send_unit_home(self, PREFIX, game_state, actions, adjactent_position_to_avoid, closest_factory_tile, turn, unit):
+    def send_unit_home(self, PREFIX, game_state, actions, adjactent_position_to_avoid, factory_centers, factory_areas, turn, unit):
         prc(PREFIX, "try to go home")
         direction, unit_actions, new_pos, num_digs, num_steps, cost = \
-            self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, closest_factory_tile, PREFIX,
-                                   one_way_only_and_recharge=True)
+            self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, factory_areas, PREFIX, one_way_only_and_recharge=True)
         if direction == 0 or not actions.can_move(unit, game_state, direction):
-            prc(PREFIX, "Cannot go home", direction)
-            prc(PREFIX, Queue.is_next_queue_move(unit, direction), unit.power, unit.move_cost(game_state, direction),
-                unit.action_queue_cost())
-            actions.clear_action(unit, PREFIX)
+            prc(PREFIX, "Cannot go home via areas",direction,", trying centre")
+            direction, unit_actions, new_pos, num_digs, num_steps, cost = \
+                self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, factory_centers, PREFIX, one_way_only_and_recharge=True)
+            if direction == 0 or not actions.can_move(unit, game_state, direction):
+                prc(PREFIX, "Cannot go home via centers", direction, ", aborting")
+                prc(PREFIX, Queue.is_next_queue_move(unit, direction), unit.power, unit.move_cost(game_state, direction),
+                    unit.action_queue_cost())
+                actions.clear_action(unit, PREFIX)
         elif direction != 0:
             prc(PREFIX, "Go home", direction, Queue.is_next_queue_move(unit, direction), unit.move_cost(game_state, direction))
             actions.set_new_actions(unit, unit_actions, PREFIX)
@@ -694,7 +746,7 @@ class Agent():
                                       one_way_only_and_dig=one_way_only_and_dig)
 
     def get_complete_path(self, game_state, unit, turn, positions_to_avoid, destination, PREFIX=None, drop_ice=False, drop_ore=False,
-                          one_way_only_and_dig=False, one_way_only_and_recharge=False):
+                          one_way_only_and_dig=False, one_way_only_and_recharge=False, one_way_only=False):
         directions, opposite_directions, cost, cost_from, new_pos, num_steps = self.get_one_way_path(game_state, unit, positions_to_avoid, destination,
                                                                                                      PREFIX)
 
@@ -703,7 +755,8 @@ class Agent():
             unit_actions, number_digs = self.get_actions_sequence(unit, turn, directions, opposite_directions, cost,
                                                                   cost_from, drop_ice=drop_ice, drop_ore=drop_ore, PREFIX=PREFIX,
                                                                   one_way_only_and_dig=one_way_only_and_dig,
-                                                                  one_way_only_and_recharge=one_way_only_and_recharge)
+                                                                  one_way_only_and_recharge=one_way_only_and_recharge,
+                                                                  one_way_only=one_way_only)
             direction = directions[0]
             return direction, unit_actions, new_pos, number_digs, num_steps, cost
         else:
@@ -759,7 +812,7 @@ class Agent():
         return directions, opposite_directions, cost_to, cost_from, new_pos, steps
 
     def get_actions_sequence(self, unit, turn, directions, opposite_directions, cost_to, cost_from, drop_ore=False, drop_ice=False, PREFIX=None,
-                             one_way_only_and_dig=False, one_way_only_and_recharge=None):
+                             one_way_only_and_dig=False, one_way_only_and_recharge=False, one_way_only=False):
         DIG_COST = unit.unit_cfg.DIG_COST
         ACTION_QUEUE_COST = unit.action_queue_cost()
         CHARGE = unit.charge_per_turn()
@@ -776,6 +829,9 @@ class Agent():
         # sequence to go
         for d in directions:
             unit_actions.append(unit.move(d))
+
+        if one_way_only:
+            return unit_actions, 0
 
         power_at_start_digging = unit.power - ACTION_QUEUE_COST - cost_to
         # prx(PREFIX, "1 power_at_start_digging", power_at_start_digging, "DIG_COST", DIG_COST)
