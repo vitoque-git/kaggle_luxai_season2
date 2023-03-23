@@ -66,6 +66,13 @@ class Unit:
     def move_cost(self, game_state, direction):
         return self.move_cost_to(game_state, self.pos + move_deltas[direction])
 
+    def can_move_to(self, game_state, direction):
+        cost = self.move_cost(game_state,direction)
+        if cost is None:
+            return False
+        else:
+            return self.power >=  cost
+
     def move(self, direction, repeat=0, n=1):
         if isinstance(direction, int):
             direction = direction
