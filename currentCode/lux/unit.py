@@ -59,6 +59,10 @@ class Unit:
 
         return math.floor(self.unit_cfg.MOVE_COST + self.unit_cfg.RUBBLE_MOVEMENT_COST * rubble_at_target)
 
+    def on_factory(self,game_state):
+        board = game_state.board
+        return board.factory_occupancy_map[self.pos[0], self.pos[1]] != -1
+
     def move_cost(self, game_state, direction):
         return self.move_cost_to(game_state, self.pos + move_deltas[direction])
 

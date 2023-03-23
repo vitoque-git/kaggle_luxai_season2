@@ -59,3 +59,12 @@ class PlayerHelper():
 
     def set_unit_next_position(self,unit_id, new_pos):
         self.unit_next_positions[unit_id] = (new_pos[0], new_pos[1])
+
+    def get_num_lights(self):
+        return len(self.get_light_positions())
+
+    def get_num_heavy(self):
+        return len(self.get_heavy_positions())
+
+    def get_num_units(self):
+        return len(self.get_unit_positions())

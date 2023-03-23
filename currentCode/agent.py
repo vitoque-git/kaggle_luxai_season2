@@ -27,7 +27,7 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (False and (('u_11' in args[0]) or ('XXXXu_33' in args[0]))):
+    if (True or (('u_11' in args[0]) or ('XXXXu_33' in args[0]))):
         pr(*args, force=True)
 
 #TODO
@@ -247,21 +247,21 @@ class Agent():
         for unit_id, unit in iter(sorted(units.items())):
 
             PREFIX = t_prefix + " " + unit.unit_type_short() + "(" + str(unit.power) + ") @" + str(unit.pos) + ' ' + unit.unit_id_short()
-
+            # prc(PREFIX)
             if unit_id not in self.bots_task.keys():
                 self.bots_task[unit_id] = ''
 
-            if len(self.him.get_unit_positions()) != 0:
+            if self.him.get_num_units() != 0:
                 opp_pos = np.array(list(self.him.get_unit_positions()), dtype=dtype)
-                opponent_unit_distances, opponent_min_distance, opponent_pos_min_distance = self.get_distances_info(unit.pos, opp_pos)
+                opponent_unit_distances, distance_to_closest_opponent, opponent_pos_min_distance = self.get_distances_info(unit.pos, opp_pos)
 
             if len(self.him.get_heavy_positions()) != 0:
                 opp_heavy_pos = np.array(list(self.him.get_heavy_positions()), dtype=dtype)
-                opponent_heavy_unit_distances, opponent_heavy_min_distance, opponent_heavy_pos_min_distance = self.get_distances_info(unit.pos, opp_heavy_pos)
+                opponent_heavy_unit_distances, distance_to_closest_opponent_heavy, opponent_heavy_pos_min_distance = self.get_distances_info(unit.pos, opp_heavy_pos)
 
-            if len(self.him.get_light_positions()) != 0:
+            if self.him.get_num_lights() != 0:
                 opp_light_pos = np.array(list(self.him.get_light_positions()), dtype=dtype)
-                opponent_light_unit_distances, opponent_light_min_distance, opponent_light_pos_min_distance = self.get_distances_info(unit.pos, opp_light_pos)
+                opponent_light_unit_distances, distance_to_closest_opponent_light, opponent_light_pos_min_distance = self.get_distances_info(unit.pos, opp_light_pos)
 
             on_factory = False
             factory_min_distance = 10000
@@ -309,12 +309,12 @@ class Agent():
                     self.factory_bots[factory_belong][t].append(unit_id)
 
                 assigned_task = self.bots_task[unit_id]
-                if (len(self.him.get_unit_positions()) != 0 and opponent_min_distance == 1 and unit.unit_type == "HEAVY") \
-                    or (len(self.him.get_light_positions()) != 0 and opponent_light_min_distance == 1) \
+                if (self.him.get_num_units() != 0 and distance_to_closest_opponent == 1 and unit.unit_type == "HEAVY") \
+                    or (self.him.get_num_lights() != 0 and distance_to_closest_opponent_light == 1) \
                         and assigned_task != "kill":
                     assigned_task = "kill"
-                    prx(PREFIX, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarily tasked as', assigned_task, opponent_pos_min_distance,
-                        opponent_min_distance)
+                    prx(PREFIX, unit.unit_id, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarily tasked as', assigned_task, opponent_pos_min_distance,
+                        distance_to_closest_opponent)
 
                 if turn_left < 200 and assigned_task == "ore":
                     self.bots_task[unit_id] = 'rubble'
@@ -330,12 +330,12 @@ class Agent():
                     #     prx(PREFIX," need to avoid first moves to ", positions_to_avoid)
 
                 if unit.unit_type == 'LIGHT':
-                    if get_distance(unit.pos_location(), p) == 1:
-                        for p in self.him.get_heavy_positions():
+                    for p in self.him.get_heavy_positions():
+                        if get_distance(unit.pos_location(), p) == 1:
                             positions_to_avoid.append(p)
 
 
-                # prc(PREFIX, unit.pos, 'task=' + assigned_task, unit.cargo)
+                prc(PREFIX, unit.pos, 'task=' + assigned_task, unit.cargo)
                 if assigned_task == "ice":
                     cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid, closest_factory_area)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
@@ -348,7 +348,7 @@ class Agent():
 
                     if unit.cargo.ice < unit.cargo_space() \
                             and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home:
-
+                        prc(PREFIX,'unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home', unit.power , recharge_power , Queue.real_cost_dig(unit) , cost_home)
                         self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                                                   ice_locations, 'ice', drop_ice=True)
 
@@ -456,28 +456,42 @@ class Agent():
                             continue
 
                 elif assigned_task == 'kill':
+                    if on_factory and (unit.cargo.ice>0 or unit.cargo.ore>0):
+                        prc(PREFIX, "on base dropcargo_or_recharge")
+                        actions.dropcargo_or_recharge(unit)
+                        continue
 
-                    if (unit.unit_type == 'HEAVY' and len(self.him.get_unit_positions()) == 0) or \
-                            (unit.unit_type == 'LIGHT' and len(self.him.get_light_positions()) == 0):
+                    if (unit.unit_type == 'HEAVY' and self.him.get_num_units() == 0) or \
+                            (unit.unit_type == 'LIGHT' and self.him.get_num_lights() == 0):
                         # no enemy we can kill
-                        prc(PREFIX, "Kill no nemy to kill", 'all=',len(self.him.get_unit_positions()), 'lights=',len(self.him.get_unit_positions()))
+                        prc(PREFIX, "Kill no enemy to kill", 'heavy=',self.him.get_num_heavy(), 'lights=',self.him.get_num_lights())
                         if len(self.him.lichen_locations) > 0:
                             self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, [],  self.him.lichen_locations, 'opponent lichen')
                             continue
 
                     else:
                         if unit.unit_type == 'HEAVY':
-                            target = (opponent_pos_min_distance[0],opponent_pos_min_distance[1])
+                            if distance_to_closest_opponent_heavy <= 2 or self.him.get_num_lights() == 0:
+                                target = (opponent_heavy_pos_min_distance[0], opponent_heavy_pos_min_distance[1])
+                                distance = distance_to_closest_opponent_heavy
+                            else:
+                                # heavy first try to get lights
+                                target = (opponent_light_pos_min_distance[0],opponent_light_pos_min_distance[1])
+                                distance = distance_to_closest_opponent
                         else:
+                            # lights only try to kill light
                             target = (opponent_light_pos_min_distance[0], opponent_light_pos_min_distance[1])
+                            distance = distance_to_closest_opponent
+
                         enemy: lux.unit.Unit = self.him.get_unit_from_current_position(target)
-                        prc(PREFIX, "Kill", target, enemy.unit_id, enemy.unit_type, enemy.power)
-                        if on_factory and opponent_min_distance > 2:
+                        prc(PREFIX, "Kill", target, enemy.unit_id, enemy.unit_type, enemy.power, 'distance',distance)
+                        if on_factory and distance > 2:
                             direction, new_pos = get_straight_direction(unit, target)
                             prc(PREFIX, "Kill, on factory, going", direction, new_pos)
                             prc(PREFIX, 'position to avoid', positions_to_avoid)
                             direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, new_pos)
-                        elif opponent_min_distance == 1:
+                        elif distance == 1:
+                            # NEXT TO TARGET
                             direction, new_pos = get_straight_direction(unit, target)
                             prc(PREFIX, "Kill, next to target, going", direction, new_pos)
                             if direction == 0:
@@ -486,13 +500,21 @@ class Agent():
                                 self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
                                 continue
                             else:
-                                if enemy.power < unit.power:
-                                    direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, new_pos)
-                                else:
+                                if distance == 2 and enemy.power > unit.power - unit.move_cost(direction) and (unit.unit_type == enemy.unit_type):
+                                    prc(PREFIX, 'Enenmy distance 2, and has more power, stand still')
+                                    actions.clear_action(unit, PREFIX)
+                                    self.me.set_unit_next_position(unit_id, unit.pos_location())
+                                    continue
+                                elif enemy.power > unit.power and (unit.unit_type == enemy.unit_type):
+                                    # if they are both same size and he is stronger, back off
                                     prc(PREFIX, "Kill, next to target, abort, he has more power:",enemy.power)
                                     positions_to_avoid.append(enemy.pos_location())
-                                    self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                                    direction, new_pos, unit_actions = \
+                                        self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
                                     continue
+                                else:
+                                    direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, new_pos)
+                                    # do not continue here
                         else:
                             if unit.power > unit.action_queue_cost():
                                 prc(PREFIX, "Kill, Seeking enemy", np.array(target))
@@ -500,10 +522,10 @@ class Agent():
                             else:
                                 if on_factory:
                                     actions.dropcargo_or_recharge(unit)
-                                else:
-                                    # GO HOME
-                                    prc(PREFIX, "Kill, going home")
-                                    self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                                # else:
+                                #     # GO HOME
+                                #     prc(PREFIX, "Kill, going home")
+                                #     self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
                             continue
 
                         prc(PREFIX, "Kill, direction", direction)
@@ -674,10 +696,15 @@ class Agent():
         return direction, new_pos, unit_actions
 
     def send_unit_home(self, PREFIX, game_state, actions, adjactent_position_to_avoid, factory_centers, factory_areas, turn, unit):
-        prc(PREFIX, "try to go home")
+
         direction, unit_actions, new_pos, num_digs, num_steps, cost = \
             self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, factory_areas, PREFIX, one_way_only_and_recharge=True)
-        if direction == 0 or not actions.can_move(unit, game_state, direction):
+
+        if unit.on_factory(game_state):
+            prc(PREFIX, "Already home")
+            actions.dropcargo_or_recharge(unit, force_recharge=True)
+            return direction, new_pos, unit_actions
+        elif direction == 0 or not actions.can_move(unit, game_state, direction):
             prc(PREFIX, "Cannot go home via areas",direction,", trying centre")
             direction, unit_actions, new_pos, num_digs, num_steps, cost = \
                 self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, factory_centers, PREFIX, one_way_only_and_recharge=True)
@@ -686,11 +713,12 @@ class Agent():
                 prc(PREFIX, Queue.is_next_queue_move(unit, direction), unit.power, unit.move_cost(game_state, direction),
                     unit.action_queue_cost())
                 actions.clear_action(unit, PREFIX)
-        elif direction != 0:
+                return direction, new_pos, unit_actions
+
+        if direction != 0:
             prc(PREFIX, "Go home", direction, Queue.is_next_queue_move(unit, direction), unit.move_cost(game_state, direction))
             actions.set_new_actions(unit, unit_actions, PREFIX)
             self.me.set_unit_next_position(unit.unit_id, new_pos)
-            # prx(PREFIX, "set next position ", new_pos)
         return direction, new_pos, unit_actions
 
     def check_can_transef_power_next_unit(self, PREFIX, unit, actions, target_position, power_transfered: dict):

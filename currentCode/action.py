@@ -127,19 +127,21 @@ class Action_Queue():
             # already moving there, only move cost
             return unit.power >= unit.move_cost(game_state, direction)
 
-    def dropcargo_or_recharge(self, unit: lux.kit.Unit):
+    def dropcargo_or_recharge(self, unit: lux.kit.Unit, force_recharge=False):
+        do_recharge = unit.power < unit.battery_capacity() * 0.1 or force_recharge
         if unit.cargo.ore > 0 and not Queue.is_next_queue_transfer_ore(unit):
-            if unit.power < unit.battery_capacity() * 0.1:
+            if do_recharge:
                 self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit), Queue.action_pickup_full_power(unit, n=30)]
             else:
                 self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit)]
         elif unit.cargo.ice > 0 and not Queue.is_next_queue_transfer_ice(unit):
-            if unit.power < unit.battery_capacity() * 0.1:
+            if do_recharge:
                 self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit), Queue.action_pickup_full_power(unit, n=30)]
             else:
                 self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit)]
-        elif unit.cargo.ice == 0 and unit.cargo.ore == 0 and unit.power < unit.battery_capacity() * 0.1 and not Queue.is_next_queue_pickup(unit):
-            self.actions[unit.unit_id] = [Queue.action_pickup_full_power(unit, n=30)]
+        elif unit.cargo.ice == 0 and unit.cargo.ore == 0 and do_recharge and not Queue.is_next_queue_pickup(unit):
+            if not Queue.is_next_queue_pickup(unit):
+                self.actions[unit.unit_id] = [Queue.action_pickup_full_power(unit, n=30)]
 
     def set_new_actions(self, unit, unit_actions, PREFIX):
         if len(unit_actions) > 0 and Queue.has_queue(unit):
