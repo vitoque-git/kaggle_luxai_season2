@@ -489,7 +489,7 @@ class Agent():
                             direction, new_pos = get_straight_direction(unit, target)
                             prc(PREFIX, "Kill, on factory, going", direction, new_pos)
                             prc(PREFIX, 'position to avoid', positions_to_avoid)
-                            direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, new_pos)
+                            direction = self.get_direction(game_state, unit, positions_to_avoid, new_pos)
                         elif distance == 1:
                             # NEXT TO TARGET
                             direction, new_pos = get_straight_direction(unit, target)
@@ -499,10 +499,10 @@ class Agent():
                                 prc(PREFIX, "Kill, next to target, abort, going home")
                                 self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
                                 continue
-                            elif (enemy.power > unit.power and (unit.unit_type == enemy.unit_type)) or not unit.can_move_to(game_state,direction):
+                            elif (enemy.power > unit.power and (unit.unit_type == enemy.unit_type)) or not actions.can_move(unit,game_state,direction):
                                 # if they are both same size and he is stronger, back off
                                 prc(PREFIX, "Kill, next to target, abort, he has more power:", enemy.power,' > ', unit.power,
-                                    ' or I cannot move there, can_move=', unit.can_move_to(game_state,direction))
+                                    ' or I cannot move there, can_move=', actions.can_move(unit,game_state,direction))
                                 positions_to_avoid.append(enemy.pos_location())
                                 direction, new_pos, unit_actions = \
                                     self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
@@ -512,8 +512,8 @@ class Agent():
                                 # going to enemy, do not continue here
                         elif distance == 2:
                             # DISTANCE 2 to enemy
-                            direction, move_cost = self.get_direction(game_state, unit, positions_to_avoid, target)
-                            if enemy.power > unit.power - unit.move_cost(game_state, direction) and (unit.unit_type == enemy.unit_type):
+                            direction = self.get_direction(game_state, unit, positions_to_avoid, target)
+                            if enemy.power > unit.power - actions.move_cost(unit, game_state, direction) and (unit.unit_type == enemy.unit_type):
                                 prc(PREFIX, 'Enemy distance 2, and has more power, stand still')
                                 actions.clear_action(unit, PREFIX)
                                 self.me.set_unit_next_position(unit_id, unit.pos_location())
@@ -548,7 +548,7 @@ class Agent():
                 # check move_cost is not None, meaning that direction is not blocked
                 # check if unit has enough power to move and update the action queue.
 
-                if direction != 0 and unit.can_move_to(game_state,direction):
+                if direction != 0 and actions.can_move(unit,game_state,direction):
                     actions.move(unit, direction)
                     # new position
                     new_pos = np.array(unit.pos) + self.move_deltas[direction]
@@ -712,18 +712,18 @@ class Agent():
             actions.dropcargo_or_recharge(unit, force_recharge=True)
             return direction, new_pos, unit_actions
         elif direction == 0 or not actions.can_move(unit, game_state, direction):
-            prc(PREFIX, "Cannot go home via areas dir=",direction,"cost=",unit.move_cost_to(game_state,new_pos), "trying centre")
+            prc(PREFIX, "Cannot go home via areas dir=",direction,"cost=",actions.move_cost(unit,game_state,direction), "trying centre")
             direction, unit_actions, new_pos, num_digs, num_steps, cost = \
                 self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, factory_centers, PREFIX, one_way_only_and_recharge=True)
             if direction == 0 or not actions.can_move(unit, game_state, direction):
                 prc(PREFIX, "Cannot go home via centers", direction, ", aborting")
-                prc(PREFIX, Queue.is_next_queue_move(unit, direction), unit.power, unit.move_cost(game_state, direction),
+                prc(PREFIX, Queue.is_next_queue_move(unit, direction), unit.power, actions.move_cost(unit,game_state,direction),
                     unit.action_queue_cost())
                 actions.clear_action(unit, PREFIX)
                 return direction, new_pos, unit_actions
 
         if direction != 0:
-            prc(PREFIX, "Go home", direction, Queue.is_next_queue_move(unit, direction), unit.move_cost(game_state, direction))
+            prc(PREFIX, "Go home", direction, Queue.is_next_queue_move(unit, direction), actions.move_cost(unit,game_state,direction))
             actions.set_new_actions(unit, unit_actions, PREFIX)
             self.me.set_unit_next_position(unit.unit_id, new_pos)
         return direction, new_pos, unit_actions
@@ -770,7 +770,7 @@ class Agent():
         if len(path) > 1:
             direction = direction_to(np.array(unit.pos), path[1])
 
-        return direction, unit.move_cost(game_state, direction)
+        return direction
 
     def get_complete_path_ice(self, game_state, unit, turn, positions_to_avoid, destination, PREFIX=None, one_way_only_and_dig=False):
         return self.get_complete_path(game_state, unit, turn, positions_to_avoid, destination, PREFIX=PREFIX, drop_ice=True,

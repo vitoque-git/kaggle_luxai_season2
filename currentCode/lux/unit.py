@@ -63,11 +63,15 @@ class Unit:
         board = game_state.board
         return board.factory_occupancy_map[self.pos[0], self.pos[1]] != -1
 
-    def move_cost(self, game_state, direction):
-        return self.move_cost_to(game_state, self.pos + move_deltas[direction])
+    # USE actions.move_cost to take also into account the queue cost
+    def _move_cost(self, game_state, direction,extra_cost =0):
+        cost =  self.move_cost_to(game_state, self.pos + move_deltas[direction])
+        if cost is None: return None
+        return cost + extra_cost
 
-    def can_move_to(self, game_state, direction):
-        cost = self.move_cost(game_state,direction)
+    # USE actions.can_move to take also into account the queue cost
+    def _can_move_to(self, game_state, direction, extra_cost = 0):
+        cost = self._move_cost(game_state,direction, extra_cost = extra_cost )
         if cost is None:
             return False
         else:

@@ -119,13 +119,21 @@ class Action_Queue():
             # already digging action, only cost for dig
             return unit.power >= unit.dig_cost()
 
+    def move_cost(self, unit, game_state, direction):
+        if not Queue.is_next_queue_move(unit, direction):
+            # not already moving there, move cost + cost action queue cost
+            return unit._move_cost(game_state, direction, extra_cost=unit.action_queue_cost())
+        else:
+            # already moving there, only move cost
+            return unit._move_cost(game_state, direction)
+
     def can_move(self, unit: lux.kit.Unit, game_state, direction):
         if not Queue.is_next_queue_move(unit, direction):
             # not already moving there, move cost + cost action queue cost
-            return unit.power >= (unit.move_cost(game_state, direction) + unit.action_queue_cost())
+            return unit._can_move_to(game_state, direction, extra_cost=unit.action_queue_cost())
         else:
             # already moving there, only move cost
-            return unit.power >= unit.move_cost(game_state, direction)
+            return unit._can_move_to(game_state, direction)
 
     def dropcargo_or_recharge(self, unit: lux.kit.Unit, force_recharge=False):
         do_recharge = unit.power < unit.battery_capacity() * 0.1 or force_recharge
