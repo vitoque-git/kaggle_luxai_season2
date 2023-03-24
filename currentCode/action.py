@@ -7,7 +7,7 @@ import sys
 
 
 def pr(*args, sep=' ', end='\n', force=False):  # print conditionally
-    if (True or f):  # change first parameter to False to disable logging
+    if (True or force):  # change first parameter to False to disable logging
         print(*args, sep=sep, file=sys.stderr)
 
 
@@ -161,7 +161,7 @@ class Action_Queue():
                     return
 
         if len(unit_actions) > 20:
-            prx(PREFIX, "Actions too long", len(unit_actions), "truncating")
+            # prx(PREFIX, "Actions too long", len(unit_actions), "truncating")
             unit_actions = unit_actions[:20]
         self.actions[unit.unit_id] = unit_actions
 

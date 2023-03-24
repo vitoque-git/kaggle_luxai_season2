@@ -283,7 +283,9 @@ class Agent():
                 self.bot_factory[unit_id] = factory_ids[min_index]
             else:
                 closest_factory_tile = factories[self.bot_factory[unit_id]].pos
-            factory_belong = self.bot_factory[unit_id]
+
+            unit_factory = self.bot_factory[unit_id]
+            factory_belong = unit_factory
 
             # UNIT TASK DECISION
             if unit.power < unit.action_queue_cost():
@@ -295,18 +297,20 @@ class Agent():
 
                 # Assigning task for the bot
                 if self.bots_task[unit_id] == '':
-                    t = 'ice'
-                    if len(self.factory_queue[self.bot_factory[unit_id]]) != 0:
-                        prx(PREFIX, "QUEUE", self.factory_queue[self.bot_factory[unit_id]])
-                        t = self.factory_queue[self.bot_factory[unit_id]].pop(0)
+                    task = 'ice'
 
-                    prx(PREFIX, 'from', factory_belong, unit.unit_type, 'assigned task', t)
+                    this_factory_queue = self.factory_queue[unit_factory]
+                    if len(this_factory_queue) != 0:
+                        prx(PREFIX, "QUEUE", this_factory_queue)
+                        task = this_factory_queue.pop(0)
+
+                    prx(PREFIX, 'from', factory_belong, unit.unit_type, 'assigned task', task, ' queue len ', len(this_factory_queue))
                     # if task =='kill' and unit.is_light():
                     #     prx(PREFIX, 'Cannot get a light killer! Rubble instead')
                     #     task = 'rubble'
 
-                    self.bots_task[unit_id] = t
-                    self.factory_bots[factory_belong][t].append(unit_id)
+                    self.bots_task[unit_id] = task
+                    self.factory_bots[factory_belong][task].append(unit_id)
 
                 # become aggressive if you need to
                 assigned_task = self.bots_task[unit_id]
@@ -582,11 +586,11 @@ class Agent():
                 }
 
                 # NO. BOTS PER TASK
-                for t in ['ice', 'kill', 'ore', 'rubble']:
-                    num_bots = len(self.factory_bots[factory_id][t]) + sum([t in self.factory_queue[factory_id]])
-                    if num_bots < min_bots[t]:
-                        prx(t_prefix, "We have less bots(", num_bots, ") for", t, " than min", min_bots[t])
-                        new_task = t
+                for task in ['ice', 'kill', 'ore', 'rubble']:
+                    num_bots = len(self.factory_bots[factory_id][task]) + sum([task in self.factory_queue[factory_id]])
+                    if num_bots < min_bots[task]:
+                        prx(t_prefix,factory_id, "We have less bots(", num_bots, ") for", task, " than min", min_bots[task])
+                        new_task = task
                         break
 
                 # toward the end of the game, build as many as rubble collector as you can

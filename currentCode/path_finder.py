@@ -15,11 +15,17 @@ def prx(*args): pr(*args, force=True)
 
 class Path_Finder():
     def __init__(self) -> None:
-        self.G = nx.Graph()
+        self.G = self.nx_type()
         self.rubbles = None
         self.prohibited_locations=[]
         self.deltas = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
+    def nx_type(self):
+        # return nx.DiGraph()
+        return nx.Graph()
+
+    def add_delta(self, a, b):
+        return tuple(np.array(a) + np.array(b))
 
     def get_opp_factories_areas(self, game_state, opp_player):
         opp_factories = [np.array(f.pos) for _, f in game_state.factories[opp_player].items()]
@@ -42,7 +48,7 @@ class Path_Finder():
             self._build_path_diff(rubbles, prohibited_locations)
 
     def _build_path_initial(self, rubbles, prohibited_locations=[]):
-        self.G = nx.Graph()
+        self.G = self.nx_type()
         self.rubbles = rubbles
         self.prohibited_locations = prohibited_locations
 
@@ -50,12 +56,11 @@ class Path_Finder():
             for y in range(self.rubbles.shape[1]):
                 self._add_node(x, y)
 
-        # prx("Nodes created.")
+        prx (f"{len(self.G.nodes)} nodes created.")
 
-        add_delta = lambda a: tuple(np.array(a[0]) + np.array(a[1]))
         for g1 in self.G.nodes:
-            self._add_edge(add_delta, g1)
-        # prx("Edges created.")
+            self._add_edge(g1)
+        prx(f"{len(self.G.edges)} edges created.")
 
     def _build_path_diff(self, rubbles, prohibited_locations=[]):
         if list(prohibited_locations) != list(self.prohibited_locations):
@@ -81,10 +86,12 @@ class Path_Finder():
                             #     pass
                             self.G.remove_node(g2)
                             self.G.add_node(g2, rubble=self.rubbles[x, y])
+
                             for delta in self.deltas:
                                 g1 = add_delta((g2, delta))
                                 if self.G.has_node(g1):
                                     self.G.add_edge(g1, g2, cost=20 + self.rubbles[g2])
+                                    # self.G.add_edge(g2, g1, cost=20 + self.rubbles[g1])
 
 
 
@@ -108,10 +115,10 @@ class Path_Finder():
         else:
             self.G.add_node((x, y), rubble=self.rubbles[x, y])
 
-    def _add_edge(self, add_delta, g1):
+    def _add_edge(self, g1, bidirectional=False):
         if self.G.has_node(g1):
             for delta in self.deltas:
-                g2 = add_delta((g1, delta))
+                g2 = self.add_delta(g1, delta)
                 if self.G.has_node(g2):
                     self.G.add_edge(g1, g2, cost=20 + self.rubbles[g2])
 
@@ -122,10 +129,9 @@ class Path_Finder():
                 self.G.remove_node(l)
 
     def _re_add_nodes(self,points_to_re_add=[]):
-        add_delta = lambda a: tuple(np.array(a[0]) + np.array(a[1]))
         for g1 in points_to_re_add:
             self._add_node(g1[0], g1[1])
-            self._add_edge(add_delta, g1)
+            self._add_edge(g1, bidirectional=True)
 
 
     def get_shortest_path(self, ptA, ptB, points_to_exclude=[]):
@@ -167,8 +173,8 @@ def test():
     opp_factories_areas = []
 
     # prx('city',pos)
-    expand_point((16, 21))
-    expand_point((24, 24))
+    expand_point(opp_factories_areas,(16, 21))
+    expand_point(opp_factories_areas,(24, 24))
     st = time.time()
     pf._build_path(rubbles,opp_factories_areas)
     print('_build_path Execution time:', -1000*(st-time.time()), 'ms')
