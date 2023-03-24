@@ -268,24 +268,18 @@ class Agent():
             factory_min_distance = 10000
             if len(factory_tiles) > 0:
                 factory_unit_distances, distance_to_factory, closest_factory_area = self.get_distances_info(unit.pos, self.me.get_factories_areas())
-                # prx(t_prefix,'-----------------------')
-                # prx(t_prefix,'factory_areas',self.me.get_factories_areas())
-                # prx(t_prefix,'factory_unit_distances',factory_unit_distances)
-                # prx(t_prefix,'distance_to_factory',distance_to_factory)
-                # prx(t_prefix,'closest_factory_area',closest_factory_area)
-                # prx(t_prefix,'closest_factory_area',closest_factory_area)
+                factory_distances, min_index, closest_factory_center = self.get_distances_info(unit.pos, factory_tiles)
 
-            if unit_id not in self.bot_factory.keys() \
-                    or self.bot_factory[unit_id] not in factory_ids:
-
-                factory_distances, min_index, closest_factory_tile = self.get_distances_info(unit.pos, factory_tiles)
-                min_index = np.argmin(factory_distances)
-                self.bot_factory[unit_id] = factory_ids[min_index]
-            else:
-                closest_factory_tile = factories[self.bot_factory[unit_id]].pos
+                # unit not yet assigned to a factory
+                if unit_id not in self.bot_factory.keys() \
+                        or self.bot_factory[unit_id] not in factory_ids:
+                    # assign this unit to closest factory (presumably where it has been created_
+                    min_index = np.argmin(factory_distances)
+                    self.bot_factory[unit_id] = factory_ids[min_index]
+                else:
+                    closest_factory_center = factories[self.bot_factory[unit_id]].pos
 
             unit_factory = self.bot_factory[unit_id]
-            factory_belong = unit_factory
 
             # UNIT TASK DECISION
             if unit.power < unit.action_queue_cost():
@@ -304,13 +298,13 @@ class Agent():
                         prx(PREFIX, "QUEUE", this_factory_queue)
                         task = this_factory_queue.pop(0)
 
-                    prx(PREFIX, 'from', factory_belong, unit.unit_type, 'assigned task', task, ' queue len ', len(this_factory_queue))
+                    prx(PREFIX, 'from', unit_factory, unit.unit_type, 'assigned task', task, ' queue len ', len(this_factory_queue))
                     # if task =='kill' and unit.is_light():
                     #     prx(PREFIX, 'Cannot get a light killer! Rubble instead')
                     #     task = 'rubble'
 
                     self.bots_task[unit_id] = task
-                    self.factory_bots[factory_belong][task].append(unit_id)
+                    self.factory_bots[unit_factory][task].append(unit_id)
 
                 # become aggressive if you need to
                 assigned_task = self.bots_task[unit_id]
@@ -330,12 +324,12 @@ class Agent():
                             target = opponent_light_pos_min_distance
 
                     if assigned_task == "kill":
-                        prx(PREFIX, unit.unit_id, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarily tasked as', assigned_task, target)
+                        prx(PREFIX, unit.unit_id, 'from', unit_factory, unit.unit_type, unit.pos, 'temporarily tasked as', assigned_task, target)
 
                 # reconvert ore to rubble at the end.
                 if turn_left < 200 and assigned_task == "ore":
                     self.bots_task[unit_id] = 'rubble'
-                    prx(PREFIX, factory_belong, unit.unit_type, unit.pos, 'permanently tasked from', assigned_task,
+                    prx(PREFIX, unit_factory, unit.unit_type, unit.pos, 'permanently tasked from', assigned_task,
                         'to', self.bots_task[unit_id])
                     assigned_task = self.bots_task[unit_id]
 
@@ -370,7 +364,7 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
-                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
                     continue
 
                 elif assigned_task == 'ore':
@@ -390,7 +384,7 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
-                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
                     continue
 
                 # RUBBLE
@@ -459,7 +453,7 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
-                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                            self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
                             continue
 
                 elif assigned_task == 'kill':
@@ -508,7 +502,7 @@ class Agent():
                             if direction == 0:
                                 # GO HOME
                                 prc(PREFIX, "Kill, next to target, abort, going home")
-                                self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                                self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
                                 continue
                             elif (enemy.power > unit.power and (unit.unit_type == enemy.unit_type)) or not actions.can_move(unit,game_state,direction):
                                 # if they are both same size and he is stronger, back off
@@ -516,7 +510,7 @@ class Agent():
                                     ' or I cannot move there, can_move=', actions.can_move(unit,game_state,direction))
                                 positions_to_avoid.append(enemy.pos_location())
                                 direction, new_pos, unit_actions = \
-                                    self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                                    self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
                                 continue
                             else:
                                 pass
@@ -543,7 +537,7 @@ class Agent():
                                 # else:
                                 #     # GO HOME
                                 #     prc(PREFIX, "Kill, going home")
-                                #     self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_tile, closest_factory_area, turn, unit)
+                                #     self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
                             continue
 
                         prc(PREFIX, "Kill, direction, resolved in direction ", direction)
