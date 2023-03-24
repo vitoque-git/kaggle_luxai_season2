@@ -1,6 +1,6 @@
 import numpy as np
 
-from utils import expand_point
+from utils import *
 
 
 class PlayerHelper():
@@ -21,15 +21,6 @@ class PlayerHelper():
 
         self.__init__() #reset everything
 
-        for unit_id, unit in iter(sorted(units.items())):
-            # default next position to current position, we will modify then in case of movements
-            self.unit_next_positions[unit.unit_id] = unit.pos_location()
-            self.unit_current_positions[unit.pos_location()] = unit
-            if unit.unit_type == "HEAVY":
-                self.heavy_current_positions[unit.pos_location()] = unit
-            else:
-                self.light_current_positions[unit.pos_location()] = unit
-
         for unit_id, factory in factories.items():
             self.factory_positions[factory.unit_id] = factory.pos_location()
             expand_point(self.factory_areas, factory.pos)
@@ -40,6 +31,20 @@ class PlayerHelper():
                 if len(newarray) > 0:
                     self.lichen_locations = np.vstack((self.lichen_locations, newarray))
 
+        for unit_id, unit in iter(sorted(units.items())):
+            # default next position to current position, we will modify then in case of movements
+            location = unit.pos_location()
+            self.unit_next_positions[unit.unit_id] = location
+            self.unit_current_positions[location] = unit
+
+            if unit.unit_type == "HEAVY":
+                self.heavy_current_positions[location] = unit
+            else:
+                self.light_current_positions[location] = unit
+
+
+    def get_factories_areas(self):
+        return self.factory_areas
 
 
     def get_unit_positions(self):

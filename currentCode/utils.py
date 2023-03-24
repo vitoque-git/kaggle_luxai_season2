@@ -96,3 +96,19 @@ def expand_point(opp_factories_areas, pos):
     opp_factories_areas.append((x + 1, y - 1))
     opp_factories_areas.append((x + 1, y))
     opp_factories_areas.append((x + 1, y + 1))
+
+def get_area_from_center(pos):
+    opp_factories_areas = []
+    x = pos[0]
+    y = pos[1]
+    opp_factories_areas.append((x - 1, y - 1))
+    opp_factories_areas.append((x - 1, y))
+    opp_factories_areas.append((x - 1, y + 1))
+    opp_factories_areas.append((x, y - 1))
+    opp_factories_areas.append((x, y))
+    opp_factories_areas.append((x, y + 1))
+    opp_factories_areas.append((x + 1, y - 1))
+    opp_factories_areas.append((x + 1, y))
+    opp_factories_areas.append((x + 1, y + 1))
+
+    return opp_factories_areas

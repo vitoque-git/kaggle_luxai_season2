@@ -263,13 +263,12 @@ class Agent():
                 opp_light_pos = np.array(list(self.him.get_light_positions()), dtype=dtype)
                 opponent_light_unit_distances, distance_to_closest_opponent_light, opponent_light_pos_min_distance = self.get_distances_info(unit.pos, opp_light_pos)
 
-            on_factory = False
+            on_factory = unit.pos_location() in self.me.get_factories_areas()
             factory_min_distance = 10000
             if len(factory_tiles) > 0:
-                factory_unit_distances, distance_to_factory, closest_factory_area = self.get_distances_info(unit.pos, self.me.factory_areas)
-                on_factory = distance_to_factory == 0
+                factory_unit_distances, distance_to_factory, closest_factory_area = self.get_distances_info(unit.pos, self.me.get_factories_areas())
                 # prx(t_prefix,'-----------------------')
-                # prx(t_prefix,'factory_areas',self.me.factory_areas)
+                # prx(t_prefix,'factory_areas',self.me.get_factories_areas())
                 # prx(t_prefix,'factory_unit_distances',factory_unit_distances)
                 # prx(t_prefix,'distance_to_factory',distance_to_factory)
                 # prx(t_prefix,'closest_factory_area',closest_factory_area)
@@ -301,27 +300,39 @@ class Agent():
                         t = self.factory_queue[self.bot_factory[unit_id]].pop(0)
 
                     prx(PREFIX, 'from', factory_belong, unit.unit_type, 'assigned task', t)
-                    # if task =='kill' and unit.unit_type == 'LIGHT':
+                    # if task =='kill' and unit.is_light():
                     #     prx(PREFIX, 'Cannot get a light killer! Rubble instead')
                     #     task = 'rubble'
 
                     self.bots_task[unit_id] = t
                     self.factory_bots[factory_belong][t].append(unit_id)
 
+                # become aggressive if you need to
                 assigned_task = self.bots_task[unit_id]
-                if (self.him.get_num_units() != 0 and distance_to_closest_opponent == 1 and unit.unit_type == "HEAVY") \
-                    or (self.him.get_num_lights() != 0 and distance_to_closest_opponent_light == 1) \
-                        and assigned_task != "kill":
-                    assigned_task = "kill"
-                    prx(PREFIX, unit.unit_id, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarily tasked as', assigned_task, opponent_pos_min_distance,
-                        distance_to_closest_opponent)
+                if assigned_task != "kill":
+                    if unit.is_heavy():
+                        if self.him.get_num_heavy() != 0 and distance_to_closest_opponent_heavy == 1:
+                            assigned_task = "kill"
+                            target = opponent_heavy_pos_min_distance
+                        elif self.him.get_num_lights() != 0 and distance_to_closest_opponent_light ==1:
+                            assigned_task = "kill"
+                            target = opponent_light_pos_min_distance
+                    else:
+                        if (self.him.get_num_lights() != 0 and distance_to_closest_opponent_light == 1):
+                            assigned_task = "kill"
+                            target = opponent_light_pos_min_distance
 
+                    if assigned_task == "kill":
+                        prx(PREFIX, unit.unit_id, 'from', factory_belong, unit.unit_type, unit.pos, 'temporarily tasked as', assigned_task, target)
+
+                # reconvert ore to rubble at the end.
                 if turn_left < 200 and assigned_task == "ore":
                     self.bots_task[unit_id] = 'rubble'
                     prx(PREFIX, factory_belong, unit.unit_type, unit.pos, 'permanently tasked from', assigned_task,
                         'to', self.bots_task[unit_id])
                     assigned_task = self.bots_task[unit_id]
 
+                # position to avoid
                 positions_to_avoid = []
                 for p in self.me.get_unit_next_positions():
                     if get_distance(unit.pos_location(), p) == 1:
@@ -329,7 +340,8 @@ class Agent():
                     # if len(positions_to_avoid)>0:
                     #     prx(PREFIX," need to avoid first moves to ", positions_to_avoid)
 
-                if unit.unit_type == 'LIGHT':
+                # if light, avoid close heavy
+                if unit.is_light():
                     for p in self.him.get_heavy_positions():
                         if get_distance(unit.pos_location(), p) == 1:
                             positions_to_avoid.append(p)
@@ -339,12 +351,6 @@ class Agent():
                 if assigned_task == "ice":
                     cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid, closest_factory_area)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
-                    # prx(PREFIX, 'cost_home',cost_home, unit.pos, closest_factory_area, 'distance ',distance_to_factory)
-                    # prx(PREFIX, 'nit.power + recharge_power',unit.power + recharge_power)
-                    # prx(PREFIX, 'Queue.real_cost_dig(unit)',Queue.real_cost_dig(unit))
-                    # prx(PREFIX, ' 1=== ',unit.cargo.ice < unit.cargo_space())
-                    # prx(PREFIX, ' 2=== ', unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home)
-                    # if turn == 5: a=5/.0
 
                     if unit.cargo.ice < unit.cargo_space() \
                             and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home:
@@ -365,12 +371,6 @@ class Agent():
                     cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid,
                                                  closest_factory_area)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
-                    # prx(PREFIX, 'cost_home',cost_home, unit.pos, closest_factory_area, 'distance ',distance_to_factory)
-                    # prx(PREFIX, 'nit.power + recharge_power',unit.power + recharge_power)
-                    # prx(PREFIX, 'Queue.real_cost_dig(unit)',Queue.real_cost_dig(unit))
-                    # prx(PREFIX, ' 1=== ',unit.cargo.ore < unit.cargo_space())
-                    # prx(PREFIX, ' 2=== ', unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home)
-                    # if turn == 49: a=5/.0
 
                     if unit.cargo.ore < unit.cargo_space() and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home:
 
@@ -461,8 +461,8 @@ class Agent():
                         actions.dropcargo_or_recharge(unit)
                         continue
 
-                    if (unit.unit_type == 'HEAVY' and self.him.get_num_units() == 0) or \
-                            (unit.unit_type == 'LIGHT' and self.him.get_num_lights() == 0):
+                    if (unit.is_heavy() and self.him.get_num_units() == 0) or \
+                            (unit.is_light() and self.him.get_num_lights() == 0):
                         # no enemy we can kill
                         prc(PREFIX, "Kill no enemy to kill", 'heavy=',self.him.get_num_heavy(), 'lights=',self.him.get_num_lights())
                         if len(self.him.lichen_locations) > 0:
@@ -470,8 +470,12 @@ class Agent():
                             continue
 
                     else:
-                        if unit.unit_type == 'HEAVY':
+                        #TODO probably needs to chose a target not inside a city, because if it does it is not moving
+
+
+                        if unit.is_heavy():
                             if self.him.get_num_heavy() > 0 and (distance_to_closest_opponent_heavy <= 2 or self.him.get_num_lights() == 0):
+                                # if a heavy is close by, engage with him. Heavy vs heavy
                                 target = (opponent_heavy_pos_min_distance[0], opponent_heavy_pos_min_distance[1])
                                 distance = distance_to_closest_opponent_heavy
                             else:
