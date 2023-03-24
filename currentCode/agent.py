@@ -27,7 +27,7 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (False and (('u_11' in args[0]) or ('XXXXu_33' in args[0]))):
+    if (True and (('u_32' in args[0]) or ('u_8' in args[0]))):
         pr(*args, force=True)
 
 #TODO
@@ -48,10 +48,10 @@ class Agent():
             'player_1': 'FirstMars'
         }
 
-        self.bots_task = {}
-        self.bot_factory = {}
-        self.factory_bots = {}
-        self.factory_queue = {}
+        self.bots_task = {} # key unit id
+        self.bot_factory = {} # key unit id
+        self.factory_bots = {} # key factory id
+        self.factory_queue = {} # key factory id
         self.move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
         self.built_robots = []
 
@@ -199,11 +199,29 @@ class Agent():
         # unit positions
         self.me.set_player(game_state, self.player)
         self.him.set_player(game_state, self.opp_player)
+        units = game_state.units[self.player]
 
-        # Build Robots
+        # factories variable
         factories = game_state.factories[self.player]
         factory_tiles, factory_ids = [], []
         self.built_robots = []
+
+        # check if any unit has died
+        for bot in list(self.bots_task.keys()):
+            if bot not in units:
+
+                try:
+                    unit_factory = self.bot_factory[bot]
+                    unit_task = self.bots_task[bot]
+                    prx(t_prefix, bot, "has died.. task was", unit_task, unit_factory)
+                    # remove from dictionaries
+                    self.bots_task.pop(bot)
+                    if bot in self.bot_factory : self.bot_factory.pop(bot)
+                    # if unit_task == 'ice':
+                    # # the below make sure we create a new one
+                    # self.factory_bots[unit_factory][unit_task].remove(bot)
+                except:
+                    prx(t_prefix, bot, "has died.. TCFAIL ON EXCEPTION")
 
         # FACTORY LOOP
         for factory_id, factory in factories.items():
@@ -226,7 +244,7 @@ class Agent():
 
         # Move Robots
         # iterate over our units and have them mine the closest ice tile
-        units = game_state.units[self.player]
+
 
         # Resource map and locations
         ice_map = game_state.board.ice
@@ -353,8 +371,7 @@ class Agent():
                     cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid, closest_factory_area)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
 
-                    if unit.cargo.ice < unit.cargo_space() \
-                            and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home:
+                    if unit.cargo.ice < unit.cargo_space() and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit):
                         prc(PREFIX,'unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home', unit.power , recharge_power , Queue.real_cost_dig(unit) , cost_home)
                         self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                                                   ice_locations, 'ice', drop_ice=True)
@@ -373,7 +390,7 @@ class Agent():
                                                  closest_factory_area)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
 
-                    if unit.cargo.ore < unit.cargo_space() and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home:
+                    if unit.cargo.ore < unit.cargo_space() and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit):
 
                         self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                                                   ore_locations, 'ore', drop_ore=True)
