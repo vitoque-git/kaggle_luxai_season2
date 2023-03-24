@@ -499,8 +499,8 @@ class Agent():
                             direction = self.get_direction(game_state, unit, positions_to_avoid, new_pos)
                         elif distance == 1:
                             # NEXT TO TARGET
-                            direction, new_pos = get_straight_direction(unit, target)
-                            prc(PREFIX, "Kill, next to target, going", direction, new_pos)
+                            direction = self.get_direction(game_state, unit, positions_to_avoid, target)
+                            prc(PREFIX, "Kill, next to target, going", direction)
                             if direction == 0:
                                 # GO HOME
                                 prc(PREFIX, "Kill, next to target, abort, going home")
