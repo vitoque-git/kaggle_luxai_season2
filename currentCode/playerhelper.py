@@ -60,7 +60,7 @@ class PlayerHelper():
         return self.unit_next_positions.values()
 
     def get_unit_from_current_position(self, pos):
-        return self.unit_current_positions[pos]
+        return self.unit_current_positions[(pos[0],pos[1])]
 
     def set_unit_next_position(self,unit_id, new_pos):
         self.unit_next_positions[unit_id] = (new_pos[0], new_pos[1])
@@ -73,3 +73,4 @@ class PlayerHelper():
 
     def get_num_units(self):
         return len(self.get_unit_positions())
+

@@ -251,6 +251,7 @@ class Agent():
             if unit_id not in self.bots_task.keys():
                 self.bots_task[unit_id] = ''
 
+            distance_to_closest_opponent, distance_to_closest_opponent_heavy, distance_to_closest_opponent_light = 10e6, 10e6, 10e6
             if self.him.get_num_units() != 0:
                 opp_pos = np.array(list(self.him.get_unit_positions()), dtype=dtype)
                 opponent_unit_distances, distance_to_closest_opponent, opponent_pos_min_distance = self.get_distances_info(unit.pos, opp_pos)
@@ -311,12 +312,14 @@ class Agent():
                 assigned_task = self.bots_task[unit_id]
                 if assigned_task != "kill":
                     if unit.is_heavy():
-                        if self.him.get_num_heavy() != 0 and distance_to_closest_opponent_heavy == 1:
+                        if distance_to_closest_opponent_heavy == 1:
                             assigned_task = "kill"
                             target = opponent_heavy_pos_min_distance
-                        elif self.him.get_num_lights() != 0 and distance_to_closest_opponent_light ==1:
-                            assigned_task = "kill"
-                            target = opponent_light_pos_min_distance
+                        elif distance_to_closest_opponent_light ==1:
+                            enemy = self.him.get_unit_from_current_position(opponent_light_pos_min_distance)
+                            if enemy.power < enemy.unit_cfg.MOVE_COST * 2:
+                                assigned_task = "kill"
+                                target = opponent_light_pos_min_distance
                     else:
                         if (self.him.get_num_lights() != 0 and distance_to_closest_opponent_light == 1):
                             assigned_task = "kill"
