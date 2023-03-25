@@ -449,12 +449,12 @@ class Agent():
 
                 elif assigned_task == 'ore':
                     # prx(PREFIX, "Looking for ore")
-                    cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid,
-                                                 closest_factory_area)
+                    cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid,closest_factory_area, PREFIX=PREFIX)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
 
                     if unit.cargo.ore < unit.cargo_space() and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit):
-
+                        prc(PREFIX, "dig_or_go_to_resouce, cargo full =", unit.cargo.ore < unit.cargo_space(), ", estimate power=", unit.power + recharge_power,
+                            'dig cost', Queue.real_cost_dig(unit), 'cost home=', cost_home)
                         self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                                                   ore_locations, 'ore', drop_ore=True)
 
@@ -464,6 +464,8 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
+                            prc(PREFIX, "Going home, cargo full =",unit.cargo.ore < unit.cargo_space(), ", estimate power=", unit.power + recharge_power,
+                                'dig cost', Queue.real_cost_dig(unit), 'cost home=', cost_home)
                             self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
                     continue
 
@@ -784,7 +786,7 @@ class Agent():
                                                                                              closest_target,
                                                                                              PREFIX, drop_ice=drop_ice, drop_ore=drop_ore)
 
-        prc(PREFIX, "get_resource_and_dig Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs)
+        prc(PREFIX, "get_resource_and_dig Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs, 'cost',cost)
 
         # FEATURE B
         if len(rubble_and_opposite_lichen_locations) > 0 \
@@ -795,13 +797,14 @@ class Agent():
                 actions.dig(unit)
                 return
 
-        if direction != 0 and actions.can_move(unit, game_state, direction) and num_digs > 0:
+        if direction != 0 and actions.can_move(unit, game_state, direction) and \
+                (num_digs > 0 or self.me.is_factory_center(unit.pos_location())):
             prc(PREFIX, "Try to go to target, direction", direction)
             actions.set_new_actions(unit, unit_actions, PREFIX)
             self.me.set_unit_next_position(unit.unit_id, new_pos)
             # prx(PREFIX, "set next position ", new_pos)
         else:
-            prc(PREFIX, "Try to go to target, aborting")
+            prc(PREFIX, "Try to go to target, aborting", "direction", direction, "num_digs",num_digs )
             # FEATURE A
             if len(rubble_and_opposite_lichen_locations) > 0 and actions.can_dig(unit):
                 # check if we can dig ruble while we wait
@@ -810,6 +813,10 @@ class Agent():
                     prc(PREFIX, "Was going for", res_name, "but cannot,  dig, on ruble/lichen")
                     actions.dig(unit)
                     return
+            if self.me.is_factory_area(unit.pos_location()):
+                prc(PREFIX, "Was going for", res_name, "but cannot, recharge")
+                actions.dropcargo_or_recharge(unit,force_recharge=True)
+                return
             # else
             actions.clear_action(unit, PREFIX)
         return direction, new_pos, unit_actions
@@ -835,7 +842,7 @@ class Agent():
                 return direction, new_pos, unit_actions
 
         if direction != 0:
-            prc(PREFIX, "Go home", direction, Queue.is_next_queue_move(unit, direction), actions.move_cost(unit,game_state,direction))
+            prc(PREFIX, "Go home dir=", direction, Queue.is_next_queue_move(unit, direction), actions.move_cost(unit,game_state,direction))
             actions.set_new_actions(unit, unit_actions, PREFIX)
             self.me.set_unit_next_position(unit.unit_id, new_pos)
         return direction, new_pos, unit_actions
@@ -1038,9 +1045,8 @@ class Agent():
     def get_cost_to(self, game_state, unit, turn, adjactent_position_to_avoid, destination, PREFIX=None):
 
         destination = np.array(destination)
-        path = self.path_finder.get_shortest_path(unit.pos, destination,
-                                                  points_to_exclude=adjactent_position_to_avoid)
-
+        path = self.path_finder.get_shortest_path(unit.pos, destination, points_to_exclude=adjactent_position_to_avoid, PREFIX=PREFIX)
+        # prx(PREFIX, "XXX", unit.pos, destination,'ex',adjactent_position_to_avoid, 'path', path)
         if len(path) == 1:
             return 0
         elif len(path) > 1:

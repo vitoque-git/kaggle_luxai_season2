@@ -11,7 +11,7 @@ class PlayerHelper():
         self.light_current_positions = {}  # index position, payload unit object
         self.heavy_current_positions = {}  # index position, payload unit object
 
-        self.factory_positions = {}  # index position, payload factory
+        self.factory_positions = {}  # index location, payload factory
         self.factory_areas = [] #list of positions
         self.lichen_locations = {} # NP of loc
 
@@ -22,7 +22,7 @@ class PlayerHelper():
         self.__init__() #reset everything
 
         for unit_id, factory in factories.items():
-            self.factory_positions[factory.unit_id] = factory.pos_location()
+            self.factory_positions[factory.pos_location()] = factory
             expand_point(self.factory_areas, factory.pos)
             if len(self.lichen_locations) == 0:
                 self.lichen_locations = np.argwhere(game_state.board.lichen_strains == factory.strain_id)
@@ -73,4 +73,10 @@ class PlayerHelper():
 
     def get_num_units(self):
         return len(self.get_unit_positions())
+
+    def is_factory_center(self, pos):
+        return (pos[0],pos[1]) in self.factory_positions
+
+    def is_factory_area(self, pos):
+        return (pos[0],pos[1]) in self.factory_areas
 

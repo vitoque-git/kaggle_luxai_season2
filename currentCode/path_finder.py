@@ -94,7 +94,8 @@ class Path_Finder():
                                 g1 = add_delta((g2, delta))
                                 if self.G.has_node(g1):
                                     self.G.add_edge(g1, g2, cost=20 + self.rubbles[g2])
-                                    # self.G.add_edge(g2, g1, cost=20 + self.rubbles[g1])
+                                    if self.FORCE_CORRECTNESS:
+                                        self.G.add_edge(g2, g1, cost=20 + self.rubbles[g1])
 
 
 
@@ -118,12 +119,20 @@ class Path_Finder():
         else:
             self.G.add_node((x, y), rubble=self.rubbles[x, y])
 
-    def _add_edge(self, g1, bidirectional=False):
+    def _add_edge(self, g1):
+        bidirectional = self.FORCE_CORRECTNESS
         if self.G.has_node(g1):
             for delta in self.deltas:
                 g2 = self.add_delta(g1, delta)
                 if self.G.has_node(g2):
                     self.G.add_edge(g1, g2, cost=20 + self.rubbles[g2])
+                    if bidirectional:
+                        self.G.add_edge(g2, g1, cost=20 + self.rubbles[g2])
+                # else:
+                #     if min(g1[0],g1[1],g2[0],g2[1])<0 or max(g1[0],g1[1],g2[0],g2[1])>47:
+                #         pass
+                #     else:
+                #         prx("cannot add edge",g1,g2)
 
 
     def _exclude_nodes(self,points_to_exclude=[]):
@@ -134,10 +143,11 @@ class Path_Finder():
     def _re_add_nodes(self,points_to_re_add=[]):
         for g1 in points_to_re_add:
             self._add_node(g1[0], g1[1])
-            self._add_edge(g1, bidirectional=True)
+        for g1 in points_to_re_add:
+            self._add_edge(g1)
 
 
-    def get_shortest_path(self, ptA, ptB, points_to_exclude=[]):
+    def get_shortest_path(self, ptA, ptB, points_to_exclude=[],PREFIX=''):
         ptA = (ptA[0], ptA[1])
         ptB = (ptB[0], ptB[1])
 
@@ -146,9 +156,10 @@ class Path_Finder():
         self._exclude_nodes(points_to_exclude)
         try:
             path = nx.shortest_path(self.G, source=ptA, target=ptB, weight="cost")
-        except:
+        except Exception as err:
             self._re_add_nodes(points_to_exclude)
-            return [ptA[0]]
+            # prx(PREFIX, "TCFAIL, on  path = nx.shortest_path:",type(err), err)
+            return [ptA]
         self._re_add_nodes(points_to_exclude)
 
         return path
