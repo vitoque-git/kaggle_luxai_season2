@@ -15,14 +15,17 @@ def prx(*args): pr(*args, force=True)
 
 class Path_Finder():
     def __init__(self) -> None:
+        self.FORCE_CORRECTNESS = False # produce accurate path but at much slower rate
         self.G = self.nx_type()
         self.rubbles = None
         self.prohibited_locations=[]
         self.deltas = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
     def nx_type(self):
-        # return nx.DiGraph()
-        return nx.Graph()
+        if self.FORCE_CORRECTNESS:
+            return nx.DiGraph()
+        else:
+            return nx.Graph()
 
     def add_delta(self, a, b):
         return tuple(np.array(a) + np.array(b))
@@ -41,7 +44,7 @@ class Path_Finder():
         return self._build_path(rubbles, opp_factories_areas)
 
     def _build_path(self, rubbles, prohibited_locations=[]):
-        if self.rubbles is None:
+        if self.rubbles is None or self.FORCE_CORRECTNESS:
             self._build_path_initial(rubbles, prohibited_locations)
         else:
             #self._build_path_initial(rubbles, prohibited_locations)
@@ -56,11 +59,11 @@ class Path_Finder():
             for y in range(self.rubbles.shape[1]):
                 self._add_node(x, y)
 
-        prx (f"{len(self.G.nodes)} nodes created.")
+        # prx (f"{len(self.G.nodes)} nodes created.")
 
         for g1 in self.G.nodes:
             self._add_edge(g1)
-        prx(f"{len(self.G.edges)} edges created.")
+        # prx(f"{len(self.G.edges)} edges created.")
 
     def _build_path_diff(self, rubbles, prohibited_locations=[]):
         if list(prohibited_locations) != list(self.prohibited_locations):
@@ -148,7 +151,7 @@ class Path_Finder():
             return [ptA[0]]
         self._re_add_nodes(points_to_exclude)
 
-        return path;
+        return path
 
     def has_node(self, pos):
         return self.G.has_node((pos[0],pos[1]))
