@@ -238,10 +238,6 @@ class Agent():
 
         factory_tiles = np.array(factory_tiles)  # Factory locations (to go back to)
 
-        # Move Robots
-        # iterate over our units and have them mine the closest ice tile
-
-
         # Resource map and locations
         ice_map = game_state.board.ice
         ore_map = game_state.board.ore
@@ -333,9 +329,9 @@ class Agent():
                             prx(t_prefix, "resource",resource_location)
                             bots_already = list(self.bot_resource.values()).count(resource_location)
                             dis = unit.get_distance(resource_location)
-                            if bots_already>0:
-                                pass
-                            else:
+                            if bots_already == 0\
+                                    or (bots_already <= 1 and dis > 4)\
+                                    or (bots_already <= 2 and dis > 6):
                                 self.bot_resource[unit_id] = resource_location
                                 prx(t_prefix, unit_factory, 'Assigning resource',resource_location,'dist=',dis,'to',unit_id,'units here', bots_already+1)
                                 break
