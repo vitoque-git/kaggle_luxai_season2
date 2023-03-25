@@ -27,7 +27,7 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (False and (('u_32' in args[0]) or ('u_8' in args[0]))):
+    if (True and (('u_24' in args[0]) or ('u_8' in args[0]))):
         pr(*args, force=True)
 
 class Agent():
@@ -213,6 +213,7 @@ class Agent():
                     # remove from dictionaries
                     self.bots_task.pop(bot)
                     if bot in self.bot_factory : self.bot_factory.pop(bot)
+                    if bot in self.bot_resource : self.bot_resource.pop(bot)
                     # if unit_task == 'ice':
                     # # the below make sure we create a new one
                     # self.factory_bots[unit_factory][unit_task].remove(bot)
@@ -318,24 +319,27 @@ class Agent():
 
                 # assign a resource to this bot
                 if unit_id not in self.bot_resource:
-                    if self.bots_task[unit_id] in ['ore','ice']:
-                        if self.bots_task[unit_id] in 'ore':
+                    if self.bots_task[unit_id] in ['ore','ice']: #,'rubble'
+                        unit_task = self.bots_task[unit_id]
+                        if unit_task == 'ore':
                             c, sorted_resources_to_factory = get_map_distances(ore_locations, unit.pos) # using unit.pos as and not factory.pos, equivalent on spawn
-                        else:
+                        elif unit_task == 'ice':
                             c, sorted_resources_to_factory = get_map_distances(ice_locations, unit.pos)
+                        elif unit_task == 'rubble':
+                            c, sorted_resources_to_factory = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
 
                         for resource in sorted_resources_to_factory:
                             resource_location = (resource[0], resource[1])
                             prx(t_prefix, "resource",resource_location)
                             bots_already = list(self.bot_resource.values()).count(resource_location)
-                            dis = unit.get_distance(resource_location)
+                            # dis = unit.get_distance(resource_location)
+                            a, dis, c = self.get_distances_info(np.array(resource_location), self.me.get_factories_areas())
                             if bots_already == 0\
                                     or (bots_already <= 1 and dis > 4)\
                                     or (bots_already <= 2 and dis > 6):
                                 self.bot_resource[unit_id] = resource_location
-                                prx(t_prefix, unit_factory, 'Assigning resource',resource_location,'dist=',dis,'to',unit_id,'units here', bots_already+1)
+                                prx(t_prefix, unit_factory, 'Assigning resource',unit_task,resource_location,'dis=',dis,'to',unit_id,'units here', bots_already+1)
                                 break
-
 
 
                 # become aggressive if you need to
@@ -422,9 +426,17 @@ class Agent():
                 elif assigned_task == 'rubble':
                     if unit.power > unit.action_queue_cost() + unit.dig_cost() + unit.rubble_dig_hurdle():
                         # if actions.can_dig(unit):
-
                         # compute the distance to each rubble tile from this unit and pick the closest
                         closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
+
+                        # if unit.unit_id in self.bot_resource:
+                        #     resource = self.bot_resource[unit.unit_id]
+                        #     prc(PREFIX, "Looking for rubble actively on assigned resource", resource)
+                        # else:
+                        #     # get closest resource
+                        #     resource = closest_rubble
+                        #     prc(PREFIX, "Looking for rubble actively on closest resource", resource)
+
 
                         # if we have reached the rubble tile, start mining if possible
                         if np.all(closest_rubble == unit.pos):
@@ -503,7 +515,6 @@ class Agent():
 
                     else:
                         #TODO probably needs to chose a target not inside a city, because if it does it is not moving
-
 
                         if unit.is_heavy():
                             if self.him.get_num_heavy() > 0 and (distance_to_closest_opponent_heavy <= 2 or self.him.get_num_lights() == 0):
@@ -677,12 +688,14 @@ class Agent():
 
     def dig_or_go_to_resouce(self, PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                              target_locations, res_name='', drop_ice=False, drop_ore=False):
-        prc(PREFIX, "Looking for", res_name, "actively")
+
         if unit.unit_id in self.bot_resource:
             resource = self.bot_resource[unit.unit_id]
+            prc(PREFIX, "Looking for", res_name, "actively on assigned resource",resource)
         else:
             # get closest resource
             resource, s = get_map_distances(target_locations, unit.pos)
+            prc(PREFIX, "Looking for", res_name, "actively on closest resource", resource)
 
         # if we have reached the ore tile, start mining if possible
         if np.all(resource == unit.pos):
