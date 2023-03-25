@@ -30,12 +30,6 @@ def prc(*args):  # print conditionally
     if (False and (('u_32' in args[0]) or ('u_8' in args[0]))):
         pr(*args, force=True)
 
-#TODO
-#SOLVE
-# luxai-s2 ./_bots/v102b/main.py ./currentCode/main.py -o replay.json -v 10 -s 223786092
-# turn 316
-# unit_13 go L U instead of just U
-
 class Agent():
     def __init__(self, player: str, env_cfg: EnvConfig) -> None:
         self.player = player
@@ -301,7 +295,7 @@ class Agent():
 
             unit_factory = self.bot_factory[unit_id]
 
-            # UNIT TASK DECISION
+            # UNIT TASK AND RESOURCE DECISION
             if unit.power < unit.action_queue_cost():
                 continue
 
@@ -327,19 +321,24 @@ class Agent():
                     self.factory_bots[unit_factory][task].append(unit_id)
 
                 # assign a resource to this bot
-                if self.bots_task[unit_id] == 'ore' and unit_id not in self.bot_resource:
-                    c, sorted_resources_to_factory = get_map_distances(ore_locations, unit.pos) # using unit.pos as and not factory.pos, equivalent on spawn
-                    for resource in sorted_resources_to_factory:
-                        resource_location = (resource[0], resource[1])
-                        prx(t_prefix, "resource",resource_location)
-                        bots_already = list(self.bot_resource.values()).count(resource_location)
-                        dis = unit.get_distance(resource_location)
-                        if bots_already>0:
-                            pass
+                if unit_id not in self.bot_resource:
+                    if self.bots_task[unit_id] in ['ore','ice']:
+                        if self.bots_task[unit_id] in 'ore':
+                            c, sorted_resources_to_factory = get_map_distances(ore_locations, unit.pos) # using unit.pos as and not factory.pos, equivalent on spawn
                         else:
-                            self.bot_resource[unit_id] = resource_location
-                            prx(t_prefix, unit_factory, 'Assigning resource',resource_location,'dist=',dis,'to',unit_id,'units here', bots_already+1)
-                            break
+                            c, sorted_resources_to_factory = get_map_distances(ice_locations, unit.pos)
+
+                        for resource in sorted_resources_to_factory:
+                            resource_location = (resource[0], resource[1])
+                            prx(t_prefix, "resource",resource_location)
+                            bots_already = list(self.bot_resource.values()).count(resource_location)
+                            dis = unit.get_distance(resource_location)
+                            if bots_already>0:
+                                pass
+                            else:
+                                self.bot_resource[unit_id] = resource_location
+                                prx(t_prefix, unit_factory, 'Assigning resource',resource_location,'dist=',dis,'to',unit_id,'units here', bots_already+1)
+                                break
 
 
 
@@ -683,16 +682,20 @@ class Agent():
     def dig_or_go_to_resouce(self, PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                              target_locations, res_name='', drop_ice=False, drop_ore=False):
         prc(PREFIX, "Looking for", res_name, "actively")
-        # get closest resource
-        closest_resource, sorted_resources = get_map_distances(target_locations, unit.pos)
+        if unit.unit_id in self.bot_resource:
+            resource = self.bot_resource[unit.unit_id]
+        else:
+            # get closest resource
+            resource, s = get_map_distances(target_locations, unit.pos)
+
         # if we have reached the ore tile, start mining if possible
-        if np.all(closest_resource == unit.pos):
-            prc(PREFIX, "On ", res_name, ", try to dig,", closest_resource)
+        if np.all(resource == unit.pos):
+            prc(PREFIX, "On ", res_name, ", try to dig,", resource)
             if actions.can_dig(unit):
                 actions.dig(unit)
         else:
             self.get_resource_and_dig(PREFIX, game_state, actions, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
-                                      closest_resource, res_name, drop_ice=drop_ice, drop_ore=drop_ore)
+                                      resource, res_name, drop_ice=drop_ice, drop_ore=drop_ore)
 
     def go_to_target(self, PREFIX, game_state, actions, adjactent_position_to_avoid, turn, unit: lux.kit.Unit, closest_target):
         direction, unit_actions, new_pos, num_digs, num_steps, cost = self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid,
