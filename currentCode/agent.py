@@ -27,7 +27,7 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (True and (('u_24' in args[0]) or ('u_8' in args[0]))):
+    if (False and (('u_54' in args[0]) or ('xu_8' in args[0]))):
         pr(*args, force=True)
 
 class Agent():
@@ -252,7 +252,23 @@ class Agent():
         ore_locations = ore_locations_all
         rubble_locations = rubble_locations_all
 
+        # x = len(rubble_locations)
         rubble_and_opposite_lichen_locations = np.vstack((rubble_locations, self.him.lichen_locations))
+        # prx(t_prefix, 'rubble_and_opposite_lichen_locations', len(rubble_and_opposite_lichen_locations), '=', x ,'+', len(self.him.lichen_locations) )
+
+
+        #remove exausted locations
+        for unit_id, unit in iter(sorted(units.items())):
+            if unit_id in self.bots_task:
+                if self.bots_task[unit_id] == 'rubble':
+                    if unit_id in self.bot_resource:
+                        old_loc =  self.bot_resource[unit_id]
+                        rubble = self.get_rubble_amount(game_state, old_loc)
+                        lichen = self.get_lichen_amount(game_state, old_loc)
+                        if rubble == 0 and lichen == 0:
+                            prx(t_prefix, unit_id, "old resource", old_loc, 'exhausted')
+                            self.bot_resource.pop(unit_id)
+
 
         # UNIT LOOP
         for unit_id, unit in iter(sorted(units.items())):
@@ -319,18 +335,17 @@ class Agent():
 
                 # assign a resource to this bot
                 if unit_id not in self.bot_resource:
-                    if self.bots_task[unit_id] in ['ore','ice']: #,'rubble'
-                        unit_task = self.bots_task[unit_id]
+                    unit_task = self.bots_task[unit_id]
+                    if unit_task in ['ore','ice']:
                         if unit_task == 'ore':
-                            c, sorted_resources_to_factory = get_map_distances(ore_locations, unit.pos) # using unit.pos as and not factory.pos, equivalent on spawn
+                            c, sorted_resources_to_factory = get_map_distances(ore_locations, unit.pos)
+                            # using unit.pos as and not factory.pos, equivalent on spawn
                         elif unit_task == 'ice':
                             c, sorted_resources_to_factory = get_map_distances(ice_locations, unit.pos)
-                        elif unit_task == 'rubble':
-                            c, sorted_resources_to_factory = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
 
                         for resource in sorted_resources_to_factory:
+                            # ORE AND ICE
                             resource_location = (resource[0], resource[1])
-                            prx(t_prefix, "resource",resource_location)
                             bots_already = list(self.bot_resource.values()).count(resource_location)
                             # dis = unit.get_distance(resource_location)
                             a, dis, c = self.get_distances_info(np.array(resource_location), self.me.get_factories_areas())
@@ -338,8 +353,38 @@ class Agent():
                                     or (bots_already <= 1 and dis > 4)\
                                     or (bots_already <= 2 and dis > 6):
                                 self.bot_resource[unit_id] = resource_location
-                                prx(t_prefix, unit_factory, 'Assigning resource',unit_task,resource_location,'dis=',dis,'to',unit_id,'units here', bots_already+1)
+                                prx(PREFIX, unit_factory, 'Assigning resource', unit_task, resource_location, 'dis=', dis, 'units here', bots_already + 1)
                                 break
+
+                    elif unit_task in ['rubble']:
+                        if unit_task == 'rubble':
+                            distances_to_unit = get_distance_vector(unit.pos, rubble_and_opposite_lichen_locations)
+                            distances_to_center = get_distance_vector(factories[unit_factory].pos, rubble_and_opposite_lichen_locations)
+                            distances_kpi = 3 * distances_to_center + distances_to_unit # maybe also add rubles and lichen qty
+                            sorted_loc = [rubble_and_opposite_lichen_locations[k] for k in np.argsort(distances_kpi)]
+
+
+
+                        for resource in sorted_loc:
+                            # RUBBLE + OPPOSITE LICHEN
+                            resource_location = (resource[0], resource[1])
+                            bots_already = list(self.bot_resource.values()).count(resource_location)
+                            rubble = self.get_rubble_amount(game_state, resource_location)
+                            lichen = self.get_lichen_amount(game_state, resource_location)
+
+                            # dis = unit.get_distance(resource_location)
+                            a, dis, c = self.get_distances_info(np.array(resource_location), self.me.get_factories_areas())
+                            if bots_already == 0:
+                                self.bot_resource[unit_id] = resource_location
+                                prx(PREFIX, unit_factory, 'Assigning resource',unit_task,resource_location,'dis=',dis,
+                                    'units here', bots_already+1,'rubble=',rubble,'lichen=',lichen)
+
+                                break
+
+                    if unit_task != 'kill' and unit_id not in self.bot_resource:
+                        prx(PREFIX, "Could not find resource for this unit",unit_task)
+
+
 
 
                 # become aggressive if you need to
@@ -429,54 +474,61 @@ class Agent():
                         # compute the distance to each rubble tile from this unit and pick the closest
                         closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
 
-                        # if unit.unit_id in self.bot_resource:
-                        #     resource = self.bot_resource[unit.unit_id]
-                        #     prc(PREFIX, "Looking for rubble actively on assigned resource", resource)
-                        # else:
-                        #     # get closest resource
-                        #     resource = closest_rubble
-                        #     prc(PREFIX, "Looking for rubble actively on closest resource", resource)
+                        direction = 0
+                        if unit.unit_id in self.bot_resource:
+                            resource = self.bot_resource[unit.unit_id]
+                            prc(PREFIX, "Looking for rubble actively on assigned resource", resource)
+                            direction, unit_actions, new_pos, num_digs, num_steps, cost = \
+                                    self.get_complete_path(game_state, unit, turn, positions_to_avoid, resource, PREFIX, one_way_only_and_dig=True)
+                            if np.all(resource != unit.pos) and direction == 0:
+                                prc(PREFIX, "assigned resource non reachable")
+                        else:
+                            # get closest resource
+                            resource = closest_rubble
+                            prc(PREFIX, "Looking for rubble actively on closest resource", resource)
+
+
 
 
                         # if we have reached the rubble tile, start mining if possible
-                        if np.all(closest_rubble == unit.pos):
+                        if np.all(resource == unit.pos):
                             prc(PREFIX, "can dig, on ruble")
                             if actions.can_dig(unit):
                                 prc(PREFIX, "dig ruble or lichen")
                                 actions.dig(unit)
+                                continue
 
                         else:
                             prc(PREFIX, "can dig, not on ruble, move to next ruble")
                             if len(rubble_locations) != 0:
+                                # try first assigned resource
 
-                                # see if in the straight direction there is a friendly unit
-                                # if (self.check_can_transef_power_next_unit(PREFIX, unit, actions, closest_rubble, power_transfered)):
-                                #     break
+                                #if the assigned resource is not reachable
+                                if direction == 0:
+                                    prc(PREFIX, "assigned resource non reachable")
+                                    best_path = None
+                                    max_range = unit.get_distance(closest_rubble) + 3
+                                    for closest in sorted_rubble:
+                                        if best_path is not None:
+                                            if unit.get_distance(closest) > max_range:
+                                                break
+                                            # performance shortcut, steps * min_cost = cost, then this is the perfect path, we can exit early
+                                            if best_path[4] == unit.get_distance(closest_rubble) and best_path[4] * unit.unit_cfg.MOVE_COST == best_path[5]:
+                                                # prx(PREFIX, "Found perfect path ", (best_path[5], best_path[4])," to ",closest)
+                                                break
+                                        # direction, unit_actions, new_pos, num_digs, num_steps, cost
+                                        path = self.get_complete_path(game_state, unit, turn, positions_to_avoid, closest, PREFIX,
+                                                                      one_way_only_and_dig=True)
+                                        this_direction, a, b, c, this_steps, this_cost = path
+                                        if this_direction != 0:
+                                            if best_path is None:
+                                                best_path = path
+                                            elif (this_cost, this_steps) < (best_path[5], best_path[4]):
+                                                # prx(PREFIX, "Chosen alternative path", (this_cost, this_steps), "instead of old",(best_path[5], best_path[4])," to ",closest)
+                                                best_path = path
 
-                                direction = 0
-                                best_path = None
-                                max_range = unit.get_distance(closest_rubble) + 3
-                                for closest in sorted_rubble:
                                     if best_path is not None:
-                                        if unit.get_distance(closest) > max_range:
-                                            break
-                                        # performance shortcut, steps * min_cost = cost, then this is the perfect path, we can exit early
-                                        if best_path[4] == unit.get_distance(closest_rubble) and best_path[4] * unit.unit_cfg.MOVE_COST == best_path[5]:
-                                            # prx(PREFIX, "Found perfect path ", (best_path[5], best_path[4])," to ",closest)
-                                            break
-                                    # direction, unit_actions, new_pos, num_digs, num_steps, cost
-                                    path = self.get_complete_path(game_state, unit, turn, positions_to_avoid, closest, PREFIX,
-                                                                  one_way_only_and_dig=True)
-                                    this_direction, a, b, c, this_steps, this_cost = path
-                                    if this_direction != 0:
-                                        if best_path is None:
-                                            best_path = path
-                                        elif (this_cost, this_steps) < (best_path[5], best_path[4]):
-                                            # prx(PREFIX, "Chosen alternative path", (this_cost, this_steps), "instead of old",(best_path[5], best_path[4])," to ",closest)
-                                            best_path = path
-
-                                if best_path is not None:
-                                    direction, unit_actions, new_pos, num_digs, num_steps, cost = best_path
+                                        direction, unit_actions, new_pos, num_digs, num_steps, cost = best_path
 
                                 # prx(PREFIX, "new ore direction ", direction)
                                 if direction == 0:
@@ -679,6 +731,12 @@ class Agent():
 
         actions.validate_actions_collision(t_prefix,units)
         return actions.actions
+
+    def get_rubble_amount(self, game_state, old_loc):
+        return game_state.board.rubble[old_loc[0], old_loc[1]]
+
+    def get_lichen_amount(self, game_state, old_loc):
+        return game_state.board.lichen[old_loc[0], old_loc[1]]
 
     def get_distances_info(self, pos, position_vector):
         distances = get_distance_vector(pos, position_vector)
