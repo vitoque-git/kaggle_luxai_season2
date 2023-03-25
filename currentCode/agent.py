@@ -27,7 +27,7 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (True and (('u_32' in args[0]) or ('u_8' in args[0]))):
+    if (False and (('u_32' in args[0]) or ('u_8' in args[0]))):
         pr(*args, force=True)
 
 #TODO
@@ -48,8 +48,10 @@ class Agent():
             'player_1': 'FirstMars'
         }
 
-        self.bots_task = {} # key unit id
         self.bot_factory = {} # key unit id
+        self.bots_task = {}  # key unit id
+        self.bot_resource = {} # key unit id
+
         self.factory_bots = {} # key factory id
         self.factory_queue = {} # key factory id
         self.move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
@@ -323,6 +325,23 @@ class Agent():
 
                     self.bots_task[unit_id] = task
                     self.factory_bots[unit_factory][task].append(unit_id)
+
+                # assign a resource to this bot
+                if self.bots_task[unit_id] == 'ore' and unit_id not in self.bot_resource:
+                    c, sorted_resources_to_factory = get_map_distances(ore_locations, unit.pos) # using unit.pos as and not factory.pos, equivalent on spawn
+                    for resource in sorted_resources_to_factory:
+                        resource_location = (resource[0], resource[1])
+                        prx(t_prefix, "resource",resource_location)
+                        bots_already = list(self.bot_resource.values()).count(resource_location)
+                        dis = unit.get_distance(resource_location)
+                        if bots_already>0:
+                            pass
+                        else:
+                            self.bot_resource[unit_id] = resource_location
+                            prx(t_prefix, unit_factory, 'Assigning resource',resource_location,'dist=',dis,'to',unit_id,'units here', bots_already+1)
+                            break
+
+
 
                 # become aggressive if you need to
                 assigned_task = self.bots_task[unit_id]
@@ -652,6 +671,7 @@ class Agent():
         # if turn==18:
         #     a=5/0.
 
+        actions.validate_actions_collision(t_prefix,units)
         return actions.actions
 
     def get_distances_info(self, pos, position_vector):

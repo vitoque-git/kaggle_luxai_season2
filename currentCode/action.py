@@ -186,3 +186,28 @@ class Action_Queue():
     def clear_action(self, unit, PREFIX):
         if Queue.has_queue(unit):
             self.actions[unit.unit_id] = []
+
+    def validate_actions_collision(self, PREFIX, units):
+        unit_action_next = {}
+        #build the complete list of next actions
+        for unit_id, unit in iter(sorted(units.items())):
+            if unit.unit_id in self.actions and len(self.actions[unit.unit_id])>0:
+                unit_action_next[unit.unit_id] = self.actions[unit.unit_id][0]
+            else:
+                if Queue.has_queue(unit):
+                    unit_action_next[unit.unit_id] = Queue.next_action(unit)
+
+        move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
+        unit_next_location = {} # key is location, payload unit id
+        for unit_id, unit in iter(sorted(units.items())):
+            new_pos = unit.pos_location()
+            for u, a in unit_action_next.items():
+                for direction in [1, 2, 3, 4]:
+                    if Queue.is_move(a, direction):
+                        new_pos = np.array(unit.pos) + move_deltas[direction]
+
+            if (new_pos[0], new_pos[1]) in unit_next_location:
+                prx(PREFIX,"TCFAIL", unit.unit_id, "clashes with ", unit_next_location[new_pos[0], new_pos[1]])
+            unit_next_location[(new_pos[0], new_pos[1])] = unit.unit_id
+
+
