@@ -683,9 +683,9 @@ class Agent():
                         new_task = task
                         break
 
-                # toward the end of the game, build as many as rubble collector as you can
-                # if turn_left<200:
-                #     new_task = 'rubble'
+                #toward the end of the game, build as many as rubble collector as you can
+                if turn_left<250:
+                    new_task = 'rubble'
 
                 # BUILD ROBOT ENTRY POINT
                 if new_task is not None:
