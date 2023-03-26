@@ -216,9 +216,10 @@ class Agent():
                     if bot in self.bot_resource : self.bot_resource.pop(bot)
                     if unit_task in ['ice','ore','rubble']:
                         # the below make sure we create a new one
-                        self.factory_bots[unit_factory][unit_task].remove(bot)
-                except:
-                    prx(t_prefix, bot, "has died.. TCFAIL ON EXCEPTION")
+                        if bot in self.factory_bots[unit_factory][unit_task]:
+                            self.factory_bots[unit_factory][unit_task].remove(bot)
+                except Exception as err:
+                    prx(t_prefix, bot, "has died.. TCFAIL ON EXCEPTION:", err)
 
         # FACTORY LOOP
         for factory_id, factory in factories.items():
