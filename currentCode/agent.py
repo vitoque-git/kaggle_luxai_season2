@@ -392,7 +392,7 @@ class Agent():
                 assigned_task = self.bots_task[unit_id]
                 if assigned_task != "kill":
                     if unit.is_heavy():
-                        if distance_to_closest_opponent_heavy == 1:
+                        if distance_to_closest_opponent_heavy <= 2:
                             assigned_task = "kill"
                             target = opponent_heavy_pos_min_distance
                         elif distance_to_closest_opponent_light ==1:
