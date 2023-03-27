@@ -27,7 +27,7 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (False and (('u_54' in args[0]) or ('xu_8' in args[0]))):
+    if (False and (('u_12' in args[0]) or ('xu_8' in args[0]))):
         pr(*args, force=True)
 
 class Agent():
@@ -361,8 +361,17 @@ class Agent():
                         if unit_task == 'rubble':
                             distances_to_unit = get_distance_vector(unit.pos, rubble_and_opposite_lichen_locations)
                             distances_to_center = get_distance_vector(factories[unit_factory].pos, rubble_and_opposite_lichen_locations)
+                            # rubbles, lichens = [], []
+                            # for x in rubble_and_opposite_lichen_locations:
+                            #     r = self.get_rubble_amount(game_state, (x[0], x[1]))
+                            #     rubbles.append(r)
+                            #     l = self.get_lichen_amount(game_state, (x[0], x[1]))
+                            #     lichens.append(l)
                             distances_kpi = 3 * distances_to_center + distances_to_unit # maybe also add rubles and lichen qty
                             sorted_loc = [rubble_and_opposite_lichen_locations[k] for k in np.argsort(distances_kpi)]
+                            # pr(t_prefix, 'XXX distances_to_unit',distances_to_unit)
+                            # pr(t_prefix, 'XXX distances_to_center',distances_to_center)
+                            # pr(t_prefix, 'XXX rubble',rubbles)
 
 
 
@@ -561,7 +570,8 @@ class Agent():
                         continue
 
                     if (unit.is_heavy() and self.him.get_num_units() == 0) or \
-                            (unit.is_light() and self.him.get_num_lights() == 0):
+                            (unit.is_heavy() and self.him.get_num_lights() == 0 and distance_to_closest_opponent_heavy>2) or \
+                                (unit.is_light() and self.him.get_num_lights() == 0):
                         # no enemy we can kill
                         prc(PREFIX, "Kill no enemy to kill", 'heavy=',self.him.get_num_heavy(), 'lights=',self.him.get_num_lights())
                         if len(self.him.lichen_locations) > 0:
@@ -684,8 +694,15 @@ class Agent():
                         new_task = task
                         break
 
-                if factory.can_build_heavy(game_state) and self.him.get_num_lights() > 5:
-                    new_task = 'kill'
+                if new_task is None and factory.can_build_heavy(game_state) and turn_left<900:
+                    prx(t_prefix, factory_id, "We have enough to build a Kill, light enemy (", self.him.get_num_lights())
+                    if self.him.get_num_lights() > 5:
+                        prx(t_prefix, factory_id, "build a new kill")
+                        new_task = 'kill'
+                    else:
+                        prx(t_prefix, factory_id, "build a new ice")
+                        new_task = 'ice'
+
                 #toward the end of the game, build as many as rubble collector as you can
                 elif turn_left<250:
                     new_task = 'rubble'
