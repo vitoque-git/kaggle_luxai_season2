@@ -27,8 +27,9 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (False and (('u_12' in args[0]) or ('xu_8' in args[0]))):
+    if (True and (('u_12' in args[0]) or ('u_57' in args[0]))):
         pr(*args, force=True)
+
 
 class Agent():
     def __init__(self, player: str, env_cfg: EnvConfig) -> None:
@@ -42,12 +43,12 @@ class Agent():
             'player_1': 'FirstMars'
         }
 
-        self.bot_factory = {} # key unit id
+        self.bot_factory = {}  # key unit id
         self.bots_task = {}  # key unit id
-        self.bot_resource = {} # key unit id
+        self.bot_resource = {}  # key unit id
 
-        self.factory_bots = {} # key factory id
-        self.factory_queue = {} # key factory id
+        self.factory_bots = {}  # key factory id
+        self.factory_queue = {}  # key factory id
         self.move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
         self.built_robots = []
 
@@ -212,9 +213,9 @@ class Agent():
                     prx(t_prefix, bot, "has died.. task was", unit_task, unit_factory)
                     # remove from dictionaries
                     self.bots_task.pop(bot)
-                    if bot in self.bot_factory : self.bot_factory.pop(bot)
-                    if bot in self.bot_resource : self.bot_resource.pop(bot)
-                    if unit_task in ['ice','ore','rubble']:
+                    if bot in self.bot_factory: self.bot_factory.pop(bot)
+                    if bot in self.bot_resource: self.bot_resource.pop(bot)
+                    if unit_task in ['ice', 'ore', 'rubble']:
                         # the below make sure we create a new one
                         if bot in self.factory_bots[unit_factory][unit_task]:
                             self.factory_bots[unit_factory][unit_task].remove(bot)
@@ -257,19 +258,17 @@ class Agent():
         rubble_and_opposite_lichen_locations = np.vstack((rubble_locations, self.him.lichen_locations))
         # prx(t_prefix, 'rubble_and_opposite_lichen_locations', len(rubble_and_opposite_lichen_locations), '=', x ,'+', len(self.him.lichen_locations) )
 
-
-        #remove exausted locations
+        # remove exausted locations
         for unit_id, unit in iter(sorted(units.items())):
             if unit_id in self.bots_task:
                 if self.bots_task[unit_id] == 'rubble':
                     if unit_id in self.bot_resource:
-                        old_loc =  self.bot_resource[unit_id]
+                        old_loc = self.bot_resource[unit_id]
                         rubble = self.get_rubble_amount(game_state, old_loc)
                         lichen = self.get_lichen_amount(game_state, old_loc)
                         if rubble == 0 and lichen == 0:
                             prx(t_prefix, unit_id, "old resource", old_loc, 'exhausted')
                             self.bot_resource.pop(unit_id)
-
 
         # UNIT LOOP
         for unit_id, unit in iter(sorted(units.items())):
@@ -286,11 +285,13 @@ class Agent():
 
             if self.him.get_num_heavy() != 0:
                 opp_heavy_pos = np.array(list(self.him.get_heavy_positions()), dtype=dtype)
-                opponent_heavy_unit_distances, distance_to_closest_opponent_heavy, opponent_heavy_pos_min_distance = self.get_distances_info(unit.pos, opp_heavy_pos)
+                opponent_heavy_unit_distances, distance_to_closest_opponent_heavy, opponent_heavy_pos_min_distance = self.get_distances_info(unit.pos,
+                                                                                                                                             opp_heavy_pos)
 
             if self.him.get_num_lights() != 0:
                 opp_light_pos = np.array(list(self.him.get_light_positions()), dtype=dtype)
-                opponent_light_unit_distances, distance_to_closest_opponent_light, opponent_light_pos_min_distance = self.get_distances_info(unit.pos, opp_light_pos)
+                opponent_light_unit_distances, distance_to_closest_opponent_light, opponent_light_pos_min_distance = self.get_distances_info(unit.pos,
+                                                                                                                                             opp_light_pos)
 
             on_factory = unit.pos_location() in self.me.get_factories_areas()
             factory_min_distance = 10000
@@ -337,7 +338,7 @@ class Agent():
                 # assign a resource to this bot
                 if unit_id not in self.bot_resource:
                     unit_task = self.bots_task[unit_id]
-                    if unit_task in ['ore','ice']:
+                    if unit_task in ['ore', 'ice']:
                         if unit_task == 'ore':
                             c, sorted_resources_to_factory = get_map_distances(ore_locations, unit.pos)
                             # using unit.pos as and not factory.pos, equivalent on spawn
@@ -350,8 +351,8 @@ class Agent():
                             bots_already = list(self.bot_resource.values()).count(resource_location)
                             # dis = unit.get_distance(resource_location)
                             a, dis, c = self.get_distances_info(np.array(resource_location), self.me.get_factories_areas())
-                            if bots_already == 0\
-                                    or (bots_already <= 1 and dis > 4)\
+                            if bots_already == 0 \
+                                    or (bots_already <= 1 and dis > 4) \
                                     or (bots_already <= 2 and dis > 6):
                                 self.bot_resource[unit_id] = resource_location
                                 prx(PREFIX, unit_factory, 'Assigning resource', unit_task, resource_location, 'dis=', dis, 'units here', bots_already + 1)
@@ -363,17 +364,15 @@ class Agent():
                             distances_to_center = get_distance_vector(factories[unit_factory].pos, rubble_and_opposite_lichen_locations)
                             # rubbles, lichens = [], []
                             # for x in rubble_and_opposite_lichen_locations:
-                            #     r = self.get_rubble_amount(game_state, (x[0], x[1]))
+                            #     r = self.get_rubble_amount(game_state, x)
                             #     rubbles.append(r)
-                            #     l = self.get_lichen_amount(game_state, (x[0], x[1]))
+                            #     l = self.get_lichen_amount(game_state, x)
                             #     lichens.append(l)
-                            distances_kpi = 3 * distances_to_center + distances_to_unit # maybe also add rubles and lichen qty
+                            distances_kpi = 3 * distances_to_center + distances_to_unit  # maybe also add rubles and lichen qty
                             sorted_loc = [rubble_and_opposite_lichen_locations[k] for k in np.argsort(distances_kpi)]
                             # pr(t_prefix, 'XXX distances_to_unit',distances_to_unit)
                             # pr(t_prefix, 'XXX distances_to_center',distances_to_center)
                             # pr(t_prefix, 'XXX rubble',rubbles)
-
-
 
                         for resource in sorted_loc:
                             # RUBBLE + OPPOSITE LICHEN
@@ -386,16 +385,13 @@ class Agent():
                             a, dis, c = self.get_distances_info(np.array(resource_location), self.me.get_factories_areas())
                             if bots_already == 0:
                                 self.bot_resource[unit_id] = resource_location
-                                prx(PREFIX, unit_factory, 'Assigning resource',unit_task,resource_location,'dis=',dis,
-                                    'units here', bots_already+1,'rubble=',rubble,'lichen=',lichen)
+                                prx(PREFIX, unit_factory, 'Assigning resource', unit_task, resource_location, 'dis=', dis,
+                                    'units here', bots_already + 1, 'rubble=', rubble, 'lichen=', lichen)
 
                                 break
 
                     if unit_task != 'kill' and unit_id not in self.bot_resource:
-                        prx(PREFIX, "Could not find resource for this unit",unit_task)
-
-
-
+                        prx(PREFIX, "Could not find resource for this unit", unit_task)
 
                 # become aggressive if you need to
                 assigned_task = self.bots_task[unit_id]
@@ -404,7 +400,7 @@ class Agent():
                         if distance_to_closest_opponent_heavy <= 2:
                             assigned_task = "kill"
                             target = opponent_heavy_pos_min_distance
-                        elif distance_to_closest_opponent_light ==1:
+                        elif distance_to_closest_opponent_light == 1:
                             enemy = self.him.get_unit_from_current_position(opponent_light_pos_min_distance)
                             if enemy.power < enemy.unit_cfg.MOVE_COST * 2:
                                 assigned_task = "kill"
@@ -438,14 +434,14 @@ class Agent():
                         if get_distance(unit.pos_location(), p) == 1:
                             positions_to_avoid.append(p)
 
-
                 prc(PREFIX, unit.pos, 'task=' + assigned_task, unit.cargo)
                 if assigned_task == "ice":
                     cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid, closest_factory_area)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
 
                     if unit.cargo.ice < unit.cargo_space() and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit):
-                        prc(PREFIX,'unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home', unit.power , recharge_power , Queue.real_cost_dig(unit) , cost_home)
+                        prc(PREFIX, 'unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home', unit.power, recharge_power,
+                            Queue.real_cost_dig(unit), cost_home)
                         self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                                                   ice_locations, 'ice', drop_ice=True)
 
@@ -459,7 +455,7 @@ class Agent():
 
                 elif assigned_task == 'ore':
                     # prx(PREFIX, "Looking for ore")
-                    cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid,closest_factory_area, PREFIX=PREFIX)
+                    cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid, closest_factory_area, PREFIX=PREFIX)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
 
                     if unit.cargo.ore < unit.cargo_space() and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit):
@@ -474,14 +470,15 @@ class Agent():
                             actions.dropcargo_or_recharge(unit)
                         else:
                             # GO HOME
-                            prc(PREFIX, "Going home, cargo full =",unit.cargo.ore < unit.cargo_space(), ", estimate power=", unit.power + recharge_power,
+                            prc(PREFIX, "Going home, cargo full =", unit.cargo.ore < unit.cargo_space(), ", estimate power=", unit.power + recharge_power,
                                 'dig cost', Queue.real_cost_dig(unit), 'cost home=', cost_home)
                             self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
                     continue
 
                 # RUBBLE
                 elif assigned_task == 'rubble':
-                    if actions.can_dig(unit) and np.all(self.bot_resource[unit.unit_id] == unit.pos) and self.get_rubble_amount(game_state,unit.pos_location()) > 0 :
+                    if actions.can_dig(unit) and np.all(self.bot_resource[unit.unit_id] == unit.pos) and self.get_rubble_amount(game_state,
+                                                                                                                                unit.pos_location()) > 0:
                         prc(PREFIX, "can dig, on target ruble")
                         actions.dig(unit)
                         continue
@@ -495,16 +492,13 @@ class Agent():
                             resource = self.bot_resource[unit.unit_id]
                             prc(PREFIX, "Looking for rubble actively on assigned resource", resource)
                             direction, unit_actions, new_pos, num_digs, num_steps, cost = \
-                                    self.get_complete_path(game_state, unit, turn, positions_to_avoid, resource, PREFIX, one_way_only_and_dig=True)
+                                self.get_complete_path(game_state, unit, turn, positions_to_avoid, resource, PREFIX, one_way_only_and_dig=True)
                             if np.all(resource != unit.pos) and direction == 0:
                                 prc(PREFIX, "assigned resource non reachable")
                         else:
                             # get closest resource
                             resource = closest_rubble
                             prc(PREFIX, "Looking for rubble actively on closest resource", resource)
-
-
-
 
                         # if we have reached the rubble tile, start mining if possible
                         if np.all(resource == unit.pos):
@@ -519,7 +513,7 @@ class Agent():
                             if len(rubble_locations) != 0:
                                 # try first assigned resource
 
-                                #if the assigned resource is not reachable
+                                # if the assigned resource is not reachable
                                 if direction == 0:
                                     prc(PREFIX, "assigned resource non reachable")
                                     best_path = None
@@ -571,22 +565,26 @@ class Agent():
                             continue
 
                 elif assigned_task == 'kill':
-                    if on_factory and (unit.cargo.ice>0 or unit.cargo.ore>0):
+                    if on_factory and (unit.cargo.ice > 0 or unit.cargo.ore > 0):
                         prc(PREFIX, "on base dropcargo_or_recharge")
                         actions.dropcargo_or_recharge(unit)
                         continue
 
+                    # conditions in which we look for lichen rather than going after enemies
                     if (unit.is_heavy() and self.him.get_num_units() == 0) or \
-                            (unit.is_heavy() and self.him.get_num_lights() == 0 and distance_to_closest_opponent_heavy>2) or \
-                                (unit.is_light() and self.him.get_num_lights() == 0):
+                            (unit.is_heavy() and self.him.get_num_lights() == 0 and distance_to_closest_opponent_heavy > 2) or \
+                            (unit.is_light() and self.him.get_num_lights() == 0) or \
+                            (distance_to_closest_opponent > 2 and self.get_lichen_amount(game_state, unit.pos) > 0) :
+
                         # no enemy we can kill
-                        prc(PREFIX, "Kill no enemy to kill", 'heavy=',self.him.get_num_heavy(), 'lights=',self.him.get_num_lights())
+                        prc(PREFIX, "Kill no enemy to kill", 'heavy=', self.him.get_num_heavy(), 'lights=', self.him.get_num_lights())
                         if len(self.him.lichen_locations) > 0:
-                            self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, [],  self.him.lichen_locations, 'opponent lichen')
+                            self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, [], self.him.lichen_locations,
+                                                      'opponent lichen')
                             continue
 
                     else:
-                        #TODO probably needs to chose a target not inside a city, because if it does it is not moving
+                        # TODO probably needs to chose a target not inside a city, because if it does it is not moving
 
                         if unit.is_heavy():
                             if self.him.get_num_heavy() > 0 and (distance_to_closest_opponent_heavy <= 2 or self.him.get_num_lights() == 0):
@@ -595,7 +593,7 @@ class Agent():
                                 distance = distance_to_closest_opponent_heavy
                             else:
                                 # heavy first try to get lights
-                                target = (opponent_light_pos_min_distance[0],opponent_light_pos_min_distance[1])
+                                target = (opponent_light_pos_min_distance[0], opponent_light_pos_min_distance[1])
                                 distance = distance_to_closest_opponent
                         else:
                             # lights only try to kill light
@@ -603,7 +601,7 @@ class Agent():
                             distance = distance_to_closest_opponent
 
                         enemy: lux.unit.Unit = self.him.get_unit_from_current_position(target)
-                        prc(PREFIX, "Kill", target, enemy.unit_id, enemy.unit_type, enemy.power, 'distance',distance)
+                        prc(PREFIX, "Kill", target, enemy.unit_id, enemy.unit_type, enemy.power, 'distance', distance)
                         if on_factory and distance > 2:
                             direction, new_pos = get_straight_direction(unit, target)
                             prc(PREFIX, "Kill, on factory, going", direction, new_pos)
@@ -618,13 +616,14 @@ class Agent():
                                 prc(PREFIX, "Kill, next to target, abort, going home")
                                 self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
                                 continue
-                            elif (enemy.power > unit.power and (unit.unit_type == enemy.unit_type)) or not actions.can_move(unit,game_state,direction):
+                            elif (enemy.power > unit.power and (unit.unit_type == enemy.unit_type)) or not actions.can_move(unit, game_state, direction):
                                 # if they are both same size and he is stronger, back off
-                                prc(PREFIX, "Kill, next to target, abort, he has more power:", enemy.power,' > ', unit.power,
-                                    ' or I cannot move there, can_move=', actions.can_move(unit,game_state,direction))
+                                prc(PREFIX, "Kill, next to target, abort, he has more power:", enemy.power, ' > ', unit.power,
+                                    ' or I cannot move there, can_move=', actions.can_move(unit, game_state, direction))
                                 positions_to_avoid.append(enemy.pos_location())
                                 direction, new_pos, unit_actions = \
-                                    self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
+                                    self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn,
+                                                        unit)
                                 continue
                             else:
                                 pass
@@ -632,7 +631,10 @@ class Agent():
                         elif distance == 2:
                             # DISTANCE 2 to enemy
                             direction = self.get_direction(game_state, unit, positions_to_avoid, target)
-                            if enemy.power > unit.power - actions.move_cost(unit, game_state, direction) and (unit.unit_type == enemy.unit_type):
+                            if get_next_pos(unit.pos, direction) in self.me.get_factories_areas():
+                                prc(PREFIX, 'Enemy distance 2, but next step is on factory area, we cannot be smashed')
+                                pass
+                            elif enemy.power > unit.power - actions.move_cost(unit, game_state, direction) and (unit.unit_type == enemy.unit_type):
                                 prc(PREFIX, 'Enemy distance 2, and has more power, stand still')
                                 actions.clear_action(unit, PREFIX)
                                 self.me.set_unit_next_position(unit_id, unit.pos_location())
@@ -641,10 +643,11 @@ class Agent():
                                 pass
                                 # going to enemy, do not continue here
                         else:
-                            #DISTANCE greater than 2
+                            # DISTANCE greater than 2
                             if unit.power > unit.action_queue_cost():
                                 prc(PREFIX, "Kill, Seeking enemy", np.array(target))
-                                direction, new_pos, unit_actions = self.go_to_target(PREFIX, game_state, actions, positions_to_avoid, turn, unit, np.array(target))
+                                direction, new_pos, unit_actions = self.go_to_target(PREFIX, game_state, actions, positions_to_avoid, turn, unit,
+                                                                                     np.array(target))
                             else:
                                 if on_factory:
                                     actions.dropcargo_or_recharge(unit)
@@ -667,11 +670,11 @@ class Agent():
                 # check move_cost is not None, meaning that direction is not blocked
                 # check if unit has enough power to move and update the action queue.
 
-                if direction != 0 and actions.can_move(unit,game_state,direction):
+                if direction != 0 and actions.can_move(unit, game_state, direction):
                     actions.move(unit, direction)
                     # new position
                     new_pos = np.array(unit.pos) + self.move_deltas[direction]
-                    prc(PREFIX,'move to ', direction, 'clashing with next positions=',(new_pos[0],new_pos[1]) in self.me.get_unit_next_positions())
+                    prc(PREFIX, 'move to ', direction, 'clashing with next positions=', (new_pos[0], new_pos[1]) in self.me.get_unit_next_positions())
                     self.me.set_unit_next_position(unit.unit_id, new_pos)
                 else:
                     # not moving
@@ -697,11 +700,11 @@ class Agent():
                 for task in ['ice', 'kill', 'ore', 'rubble']:
                     num_bots = len(self.factory_bots[factory_id][task]) + sum([task in self.factory_queue[factory_id]])
                     if num_bots < min_bots[task]:
-                        prx(t_prefix,factory_id, "We have less bots(", num_bots, ") for", task, " than min", min_bots[task])
+                        prx(t_prefix, factory_id, "We have less bots(", num_bots, ") for", task, " than min", min_bots[task])
                         new_task = task
                         break
 
-                if new_task is None and factory.can_build_heavy(game_state) and turn_left<900:
+                if new_task is None and factory.can_build_heavy(game_state) and turn_left < 900:
                     prx(t_prefix, factory_id, "We have enough to build a Kill, light enemy (", self.him.get_num_lights())
                     if self.him.get_num_lights() > 5:
                         prx(t_prefix, factory_id, "build a new kill")
@@ -710,8 +713,8 @@ class Agent():
                         prx(t_prefix, factory_id, "build a new ice")
                         new_task = 'ice'
 
-                #toward the end of the game, build as many as rubble collector as you can
-                elif turn_left<250:
+                # toward the end of the game, build as many as rubble collector as you can
+                elif turn_left < 250:
                     new_task = 'rubble'
 
                 # BUILD ROBOT ENTRY POINT
@@ -758,14 +761,14 @@ class Agent():
         # if turn==18:
         #     a=5/0.
 
-        actions.validate_actions_collision(t_prefix,units)
+        actions.validate_actions_collision(t_prefix, units)
         return actions.actions
 
-    def get_rubble_amount(self, game_state, old_loc):
-        return game_state.board.rubble[old_loc[0], old_loc[1]]
+    def get_rubble_amount(self, game_state, pos):
+        return game_state.board.rubble[pos[0], pos[1]]
 
-    def get_lichen_amount(self, game_state, old_loc):
-        return game_state.board.lichen[old_loc[0], old_loc[1]]
+    def get_lichen_amount(self, game_state, pos):
+        return game_state.board.lichen[pos[0], pos[1]]
 
     def get_distances_info(self, pos, position_vector):
         distances = get_distance_vector(pos, position_vector)
@@ -778,7 +781,7 @@ class Agent():
 
         if unit.unit_id in self.bot_resource:
             resource = self.bot_resource[unit.unit_id]
-            prc(PREFIX, "Looking for", res_name, "actively on assigned resource",resource)
+            prc(PREFIX, "Looking for", res_name, "actively on assigned resource", resource)
         else:
             # get closest resource
             resource, s = get_map_distances(target_locations, unit.pos)
@@ -786,18 +789,21 @@ class Agent():
 
         # if we have reached the ore tile, start mining if possible
         if np.all(resource == unit.pos):
-            prc(PREFIX, "On ", res_name, ", try to dig,", resource)
             if actions.can_dig(unit):
+                prc(PREFIX, "On ", res_name, ", dig,", resource)
                 actions.dig(unit)
+            else:
+                prc(PREFIX, "On ", res_name, ", but cannot dig")
+                actions.clear_action(unit, PREFIX)
         else:
             self.get_resource_and_dig(PREFIX, game_state, actions, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                                       resource, res_name, drop_ice=drop_ice, drop_ore=drop_ore)
 
     def go_to_target(self, PREFIX, game_state, actions, adjactent_position_to_avoid, turn, unit: lux.kit.Unit, closest_target):
         direction, unit_actions, new_pos, num_digs, num_steps, cost = self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid,
-                                                                                             closest_target,PREFIX, one_way_only=True)
+                                                                                             closest_target, PREFIX, one_way_only=True)
         prc(PREFIX, "go_to_target, found direction", direction, "to", new_pos)
-        if direction != 0 and actions.can_move(unit, game_state, direction) :
+        if direction != 0 and actions.can_move(unit, game_state, direction):
             prc(PREFIX, "Try to go to target, direction", direction)
             actions.set_new_actions(unit, unit_actions, PREFIX)
             self.me.set_unit_next_position(unit.unit_id, new_pos)
@@ -813,11 +819,12 @@ class Agent():
                                                                                              closest_target,
                                                                                              PREFIX, drop_ice=drop_ice, drop_ore=drop_ore)
 
-        prc(PREFIX, "get_resource_and_dig Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs, 'cost',cost)
+        prc(PREFIX, "get_resource_and_dig Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs, 'cost', cost)
 
         # FEATURE B
         if len(rubble_and_opposite_lichen_locations) > 0 \
-                and actions.can_dig(unit) and unit.get_distance(closest_target) <= 3 and (closest_target[0], closest_target[1]) in self.me.get_unit_next_positions():
+                and actions.can_dig(unit) and unit.get_distance(closest_target) <= 3 and (
+        closest_target[0], closest_target[1]) in self.me.get_unit_next_positions():
             closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
             if np.all(closest_rubble == unit.pos):
                 prc(PREFIX, "Resource is close", res_name, ", but busy,  dig, on ruble/lichen")
@@ -831,7 +838,7 @@ class Agent():
             self.me.set_unit_next_position(unit.unit_id, new_pos)
             # prx(PREFIX, "set next position ", new_pos)
         else:
-            prc(PREFIX, "Try to go to target, aborting", "direction", direction, "num_digs",num_digs )
+            prc(PREFIX, "Try to go to target, aborting", "direction", direction, "num_digs", num_digs)
             # FEATURE A
             if len(rubble_and_opposite_lichen_locations) > 0 and actions.can_dig(unit):
                 # check if we can dig ruble while we wait
@@ -842,7 +849,7 @@ class Agent():
                     return
             if self.me.is_factory_area(unit.pos_location()):
                 prc(PREFIX, "Was going for", res_name, "but cannot, recharge")
-                actions.dropcargo_or_recharge(unit,force_recharge=True)
+                actions.dropcargo_or_recharge(unit, force_recharge=True)
                 return
             # else
             actions.clear_action(unit, PREFIX)
@@ -858,18 +865,18 @@ class Agent():
             actions.dropcargo_or_recharge(unit, force_recharge=True)
             return direction, new_pos, unit_actions
         elif direction == 0 or not actions.can_move(unit, game_state, direction):
-            prc(PREFIX, "Cannot go home via areas dir=",direction,"cost=",actions.move_cost(unit,game_state,direction), "trying centre")
+            prc(PREFIX, "Cannot go home via areas dir=", direction, "cost=", actions.move_cost(unit, game_state, direction), "trying centre")
             direction, unit_actions, new_pos, num_digs, num_steps, cost = \
                 self.get_complete_path(game_state, unit, turn, adjactent_position_to_avoid, factory_centers, PREFIX, one_way_only_and_recharge=True)
             if direction == 0 or not actions.can_move(unit, game_state, direction):
                 prc(PREFIX, "Cannot go home via centers", direction, ", aborting")
-                prc(PREFIX, Queue.is_next_queue_move(unit, direction), unit.power, actions.move_cost(unit,game_state,direction),
+                prc(PREFIX, Queue.is_next_queue_move(unit, direction), unit.power, actions.move_cost(unit, game_state, direction),
                     unit.action_queue_cost())
                 actions.clear_action(unit, PREFIX)
                 return direction, new_pos, unit_actions
 
         if direction != 0:
-            prc(PREFIX, "Go home dir=", direction, Queue.is_next_queue_move(unit, direction), actions.move_cost(unit,game_state,direction))
+            prc(PREFIX, "Go home dir=", direction, Queue.is_next_queue_move(unit, direction), actions.move_cost(unit, game_state, direction))
             actions.set_new_actions(unit, unit_actions, PREFIX)
             self.me.set_unit_next_position(unit.unit_id, new_pos)
         return direction, new_pos, unit_actions
@@ -904,9 +911,7 @@ class Agent():
     def built_robot(self, factory, type, t_prefix):
         pr(t_prefix, factory.unit_id, "Build", type, "robot in", factory.pos)
         self.built_robots.append(factory.pos_location())
-        self.me.set_unit_next_position(factory.unit_id,factory.pos_location())
-
-
+        self.me.set_unit_next_position(factory.unit_id, factory.pos_location())
 
     def get_direction(self, game_state, unit, positions_to_avoid, destination, PREFIX=None):
 
