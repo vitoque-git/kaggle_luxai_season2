@@ -684,8 +684,10 @@ class Agent():
                         new_task = task
                         break
 
+                if factory.can_build_heavy(game_state) and self.him.get_num_lights() > 5:
+                    new_task = 'kill'
                 #toward the end of the game, build as many as rubble collector as you can
-                if turn_left<250:
+                elif turn_left<250:
                     new_task = 'rubble'
 
                 # BUILD ROBOT ENTRY POINT
@@ -696,7 +698,7 @@ class Agent():
                         continue
 
                     if new_task in ['kill', 'ice']:
-                        if factory.can_build_heavy(game_state) or turn_left < 200:
+                        if factory.can_build_heavy(game_state):
                             self.build_heavy_robot(actions, factory, t_prefix)
                         elif factory.can_build_light(game_state):
                             self.build_light_robot(actions, factory, t_prefix)
