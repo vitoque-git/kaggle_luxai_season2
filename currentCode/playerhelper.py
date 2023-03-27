@@ -13,7 +13,8 @@ class PlayerHelper():
 
         self.factory_positions = {}  # index location, payload factory
         self.factory_areas = [] #list of positions
-        self.lichen_locations = {} # NP of loc
+        self.lichen_locations = {} # NP of loc. NOTE to use anything in, needs to be used as "pos in self.lichen_locations.tolist()"
+        self.lichen_strain = []
 
     def set_player(self,game_state, player):
         units = game_state.units[player]
@@ -22,6 +23,7 @@ class PlayerHelper():
         self.__init__() #reset everything
 
         for unit_id, factory in factories.items():
+            self.lichen_strain.append(factory.strain_id)
             self.factory_positions[factory.pos_location()] = factory
             expand_point(self.factory_areas, factory.pos)
             if len(self.lichen_locations) == 0:
@@ -81,7 +83,7 @@ class PlayerHelper():
         return (pos[0],pos[1]) in self.factory_areas
 
     def get_lichen_amount(self, game_state, pos):
-        if pos in self.lichen_locations:
+        if game_state.board.lichen_strains[pos[0], pos[1]] in self.lichen_strain:
             return game_state.board.lichen[pos[0], pos[1]]
         else:
             return 0
