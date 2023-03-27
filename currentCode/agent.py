@@ -27,7 +27,7 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (True and (('u_12' in args[0]) or ('u_57' in args[0]))):
+    if (False and (('xu_12' in args[0]) or ('u_57' in args[0]))):
         pr(*args, force=True)
 
 
@@ -362,13 +362,20 @@ class Agent():
                         if unit_task == 'rubble':
                             distances_to_unit = get_distance_vector(unit.pos, rubble_and_opposite_lichen_locations)
                             distances_to_center = get_distance_vector(factories[unit_factory].pos, rubble_and_opposite_lichen_locations)
-                            # rubbles, lichens = [], []
-                            # for x in rubble_and_opposite_lichen_locations:
-                            #     r = self.get_rubble_amount(game_state, x)
-                            #     rubbles.append(r)
-                            #     l = self.get_lichen_amount(game_state, x)
-                            #     lichens.append(l)
-                            distances_kpi = 3 * distances_to_center + distances_to_unit  # maybe also add rubles and lichen qty
+                            rubbles, distance_lichens = [], []
+                            i = -1
+                            for x in rubble_and_opposite_lichen_locations:
+                                i = i + 1
+                                r = self.get_rubble_amount(game_state, x)
+                                rubbles.append(r)
+
+                                if len(self.me.lichen_locations) > 0:
+                                    distances_to_lichen = get_distance_vector(x, self.me.lichen_locations)
+                                    min_distances_to_lichen = np.min(distances_to_lichen)
+                                    if min_distances_to_lichen < distances_to_center[i]:
+                                        distances_to_center[i] = min_distances_to_lichen
+
+                            distances_kpi = (4 * distances_to_center + distances_to_unit) + np.array(rubbles)/15
                             sorted_loc = [rubble_and_opposite_lichen_locations[k] for k in np.argsort(distances_kpi)]
                             # pr(t_prefix, 'XXX distances_to_unit',distances_to_unit)
                             # pr(t_prefix, 'XXX distances_to_center',distances_to_center)
@@ -439,9 +446,13 @@ class Agent():
                     cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid, closest_factory_area)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
 
-                    if unit.cargo.ice < unit.cargo_space() and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit):
-                        prc(PREFIX, 'unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home', unit.power, recharge_power,
-                            Queue.real_cost_dig(unit), cost_home)
+                    if unit.cargo.ice < unit.cargo_space() \
+                            and ((unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit)) \
+                                or (not on_factory and unit.cargo.ice == 0 and cost_home > 4 * unit.dig_cost()) \
+                                or (not on_factory and unit.cargo.ice <  unit.cargo_space() / 2 and cost_home > 6 * unit.dig_cost()) \
+                            ):
+
+                        prc(PREFIX, 'unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home', unit.power, recharge_power, Queue.real_cost_dig(unit), cost_home)
                         self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
                                                   ice_locations, 'ice', drop_ice=True)
 
@@ -820,6 +831,13 @@ class Agent():
                                                                                              PREFIX, drop_ice=drop_ice, drop_ore=drop_ore)
 
         prc(PREFIX, "get_resource_and_dig Looking for", res_name, " actively, found direction", direction, "to", new_pos, "num_digs", num_digs, 'cost', cost)
+
+        # TODO
+        # if unit.get_distance(closest_target) == 1:
+        #     friend =  self.me.get_unit_from_current_position(closest_target)
+        #     if self.bots_task[friend.unit_id] == self.bots_task[unit.unit_id] and self.bot_resource[friend.unit_id] == self.bot_resource[unit.unit_id]:
+        #         check_can_transef_power_next_unit
+
 
         # FEATURE B
         if len(rubble_and_opposite_lichen_locations) > 0 \
