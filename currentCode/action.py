@@ -220,7 +220,7 @@ class Action_Queue():
         for unit_id, unit in iter(sorted(units.items())):
             if unit_id in unit_action_next:
                 a = unit_action_next[unit_id]
-                if Queue.is_dig(a):
+                if Queue.is_dig(a) and self.can_dig(unit):
                     if player_helper_me.get_lichen_amount(game_state, unit.pos):
                         pr(PREFIX, "TCFAIL", unit_id, " dig on our own lichen",unit.pos)
                         if unit.unit_id in self.actions:
