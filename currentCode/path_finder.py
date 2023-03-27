@@ -14,8 +14,8 @@ def prx(*args): pr(*args, force=True)
 
 
 class Path_Finder():
-    def __init__(self) -> None:
-        self.FORCE_CORRECTNESS = False # produce accurate path but at much slower rate
+    def __init__(self, force_correctness) -> None:
+        self.FORCE_CORRECTNESS = force_correctness # produce accurate path but at much slower rate
         self.G = self.nx_type()
         self.rubbles = None
         self.prohibited_locations=[]

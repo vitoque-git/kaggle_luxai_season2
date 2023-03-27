@@ -187,16 +187,22 @@ class Action_Queue():
         if Queue.has_queue(unit):
             self.actions[unit.unit_id] = []
 
-    def validate_actions_collision(self, PREFIX, units):
+    def validate_actions(self, PREFIX, units, game_state, player_helper_me):
+
+
         unit_action_next = {}
         #build the complete list of next actions
         for unit_id, unit in iter(sorted(units.items())):
-            if unit.unit_id in self.actions and len(self.actions[unit.unit_id])>0:
-                unit_action_next[unit.unit_id] = self.actions[unit.unit_id][0]
+            if unit.unit_id in self.actions:
+                if len(self.actions[unit.unit_id])>0:
+                    unit_action_next[unit.unit_id] = self.actions[unit.unit_id][0]
+                else:
+                    unit_action_next[unit.unit_id] = None
             else:
                 if Queue.has_queue(unit):
                     unit_action_next[unit.unit_id] = Queue.next_action(unit)
 
+        # VALIDATE COLLISIONS
         move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
         unit_next_location = {} # key is location, payload unit id
         for unit_id, unit in iter(sorted(units.items())):
@@ -207,7 +213,20 @@ class Action_Queue():
                         new_pos = np.array(unit.pos) + move_deltas[direction]
 
             if (new_pos[0], new_pos[1]) in unit_next_location:
-                prx(PREFIX,"TCFAIL", unit.unit_id, "clashes with ", unit_next_location[new_pos[0], new_pos[1]])
+                pr(PREFIX,"TCFAIL", unit.unit_id, "clashes with ", unit_next_location[new_pos[0], new_pos[1]])
             unit_next_location[(new_pos[0], new_pos[1])] = unit.unit_id
+
+        # VALIDATE DIG ON OUE OWN LICHEN
+        for unit_id, unit in iter(sorted(units.items())):
+            if unit_id in unit_action_next:
+                a = unit_action_next[unit_id]
+                if Queue.is_dig(a):
+                    if player_helper_me.get_lichen_amount(game_state, unit.pos):
+                        pr(PREFIX, "TCFAIL", unit_id, " dig on our own lichen",unit.pos)
+                        if unit.unit_id in self.actions:
+                            pr(PREFIX, 'new action used', self.actions[unit.unit_id])
+                        else:
+                            pr(PREFIX, 'old action used', unit.action_queue)
+                        # exit(0)
 
 

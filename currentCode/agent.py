@@ -8,6 +8,7 @@ from path_finder import *
 from lux.kit import obs_to_game_state, GameState, EnvConfig
 from lux.utils import my_turn_to_place_factory
 from playerhelper import PlayerHelper
+from properties import Prop
 from utils import *
 import sys
 import numpy as np
@@ -53,7 +54,7 @@ class Agent():
         self.built_robots = []
 
         self.G = nx.Graph()
-        self.path_finder = Path_Finder()
+        self.path_finder = Path_Finder(Prop.is_prod())
 
         self.me = PlayerHelper()
         self.him = PlayerHelper()
@@ -449,7 +450,7 @@ class Agent():
                     if unit.cargo.ice < unit.cargo_space() \
                             and ((unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit)) \
                                 or (not on_factory and unit.cargo.ice == 0 and cost_home > 4 * unit.dig_cost()) \
-                                or (not on_factory and unit.cargo.ice <  unit.cargo_space() / 2 and cost_home > 6 * unit.dig_cost()) \
+                                or (not on_factory and unit.cargo.ice < unit.cargo_space() / 2 and cost_home > 6 * unit.dig_cost()) \
                             ):
 
                         prc(PREFIX, 'unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home', unit.power, recharge_power, Queue.real_cost_dig(unit), cost_home)
@@ -469,7 +470,11 @@ class Agent():
                     cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid, closest_factory_area, PREFIX=PREFIX)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
 
-                    if unit.cargo.ore < unit.cargo_space() and unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit):
+                    if unit.cargo.ore < unit.cargo_space() \
+                            and ((unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit)) \
+                                or (not on_factory and unit.cargo.ore == 0 and cost_home > 4 * unit.dig_cost()) \
+                                or (not on_factory and unit.cargo.ore < unit.cargo_space() / 2 and cost_home > 6 * unit.dig_cost()) \
+                            ):
                         prc(PREFIX, "dig_or_go_to_resouce, cargo full =", unit.cargo.ore < unit.cargo_space(), ", estimate power=", unit.power + recharge_power,
                             'dig cost', Queue.real_cost_dig(unit), 'cost home=', cost_home)
                         self.dig_or_go_to_resouce(PREFIX, actions, game_state, positions_to_avoid, turn, unit, rubble_and_opposite_lichen_locations,
@@ -488,8 +493,8 @@ class Agent():
 
                 # RUBBLE
                 elif assigned_task == 'rubble':
-                    if actions.can_dig(unit) and np.all(self.bot_resource[unit.unit_id] == unit.pos) and self.get_rubble_amount(game_state,
-                                                                                                                                unit.pos_location()) > 0:
+                    if actions.can_dig(unit) and np.all(self.bot_resource[unit.unit_id] == unit.pos) \
+                            and (self.get_rubble_amount(game_state, unit.pos_location()) > 0 or self.him.get_lichen_amount(game_state,unit.pos) > 0):
                         prc(PREFIX, "can dig, on target ruble")
                         actions.dig(unit)
                         continue
@@ -584,6 +589,7 @@ class Agent():
                     # conditions in which we look for lichen rather than going after enemies
                     if (unit.is_heavy() and self.him.get_num_units() == 0) or \
                             (unit.is_heavy() and self.him.get_num_lights() == 0 and distance_to_closest_opponent_heavy > 2) or \
+                            (unit.is_heavy() and distance_to_closest_opponent_heavy > 2 and self.him.is_factory_area(opponent_light_pos_min_distance)) or \
                             (unit.is_light() and self.him.get_num_lights() == 0) or \
                             (distance_to_closest_opponent > 2 and self.him.get_lichen_amount(game_state, unit.pos) > 0):
 
@@ -774,8 +780,8 @@ class Agent():
         #     prx(t_prefix,"next_position =====",self.unit_next_positions)
         # if turn==18:
         #     a=5/0.
-
-        actions.validate_actions_collision(t_prefix, units)
+        if Prop.is_local():
+            actions.validate_actions(t_prefix, units, game_state, self.me)
         return actions.actions
 
     def get_rubble_amount(self, game_state, pos):
