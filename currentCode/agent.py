@@ -265,7 +265,7 @@ class Agent():
                     if unit_id in self.bot_resource:
                         old_loc = self.bot_resource[unit_id]
                         rubble = self.get_rubble_amount(game_state, old_loc)
-                        lichen = self.get_lichen_amount(game_state, old_loc)
+                        lichen = self.him.get_lichen_amount(game_state, old_loc)
                         if rubble == 0 and lichen == 0:
                             prx(t_prefix, unit_id, "old resource", old_loc, 'exhausted')
                             self.bot_resource.pop(unit_id)
@@ -379,7 +379,7 @@ class Agent():
                             resource_location = (resource[0], resource[1])
                             bots_already = list(self.bot_resource.values()).count(resource_location)
                             rubble = self.get_rubble_amount(game_state, resource_location)
-                            lichen = self.get_lichen_amount(game_state, resource_location)
+                            lichen = self.him.get_lichen_amount(game_state, resource_location)
 
                             # dis = unit.get_distance(resource_location)
                             a, dis, c = self.get_distances_info(np.array(resource_location), self.me.get_factories_areas())
@@ -574,7 +574,7 @@ class Agent():
                     if (unit.is_heavy() and self.him.get_num_units() == 0) or \
                             (unit.is_heavy() and self.him.get_num_lights() == 0 and distance_to_closest_opponent_heavy > 2) or \
                             (unit.is_light() and self.him.get_num_lights() == 0) or \
-                            (distance_to_closest_opponent > 2 and self.get_lichen_amount(game_state, unit.pos) > 0) :
+                            (distance_to_closest_opponent > 2 and self.him.get_lichen_amount(game_state, unit.pos) > 0):
 
                         # no enemy we can kill
                         prc(PREFIX, "Kill no enemy to kill", 'heavy=', self.him.get_num_heavy(), 'lights=', self.him.get_num_lights())
@@ -587,7 +587,10 @@ class Agent():
                         # TODO probably needs to chose a target not inside a city, because if it does it is not moving
 
                         if unit.is_heavy():
-                            if self.him.get_num_heavy() > 0 and (distance_to_closest_opponent_heavy <= 2 or self.him.get_num_lights() == 0):
+                            if self.him.get_num_heavy() > 0 and \
+                                    ((distance_to_closest_opponent_heavy <= 2 or self.him.get_num_lights() == 0) or \
+                                     (distance_to_closest_opponent_heavy <= 6 and distance_to_closest_opponent_light > 2 * distance_to_closest_opponent_heavy)
+                                    ):
                                 # if a heavy is close by, engage with him. Heavy vs heavy
                                 target = (opponent_heavy_pos_min_distance[0], opponent_heavy_pos_min_distance[1])
                                 distance = distance_to_closest_opponent_heavy
@@ -766,9 +769,6 @@ class Agent():
 
     def get_rubble_amount(self, game_state, pos):
         return game_state.board.rubble[pos[0], pos[1]]
-
-    def get_lichen_amount(self, game_state, pos):
-        return game_state.board.lichen[pos[0], pos[1]]
 
     def get_distances_info(self, pos, position_vector):
         distances = get_distance_vector(pos, position_vector)

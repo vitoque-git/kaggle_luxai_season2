@@ -80,3 +80,8 @@ class PlayerHelper():
     def is_factory_area(self, pos):
         return (pos[0],pos[1]) in self.factory_areas
 
+    def get_lichen_amount(self, game_state, pos):
+        if pos in self.lichen_locations:
+            return game_state.board.lichen[pos[0], pos[1]]
+        else:
+            return 0
