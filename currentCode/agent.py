@@ -481,7 +481,11 @@ class Agent():
 
                 # RUBBLE
                 elif assigned_task == 'rubble':
-                    if unit.power > unit.action_queue_cost() + unit.dig_cost() + unit.rubble_dig_hurdle():
+                    if actions.can_dig(unit) and np.all(self.bot_resource[unit.unit_id] == unit.pos) and self.get_rubble_amount(game_state,unit.pos_location()) > 0 :
+                        prc(PREFIX, "can dig, on target ruble")
+                        actions.dig(unit)
+                        continue
+                    elif unit.power > unit.action_queue_cost() + unit.dig_cost() + unit.rubble_dig_hurdle():
                         # if actions.can_dig(unit):
                         # compute the distance to each rubble tile from this unit and pick the closest
                         closest_rubble, sorted_rubble = get_map_distances(rubble_and_opposite_lichen_locations, unit.pos)
@@ -542,7 +546,6 @@ class Agent():
                                     if best_path is not None:
                                         direction, unit_actions, new_pos, num_digs, num_steps, cost = best_path
 
-                                # prx(PREFIX, "new ore direction ", direction)
                                 if direction == 0:
                                     actions.clear_action(unit, PREFIX)
                                     continue
@@ -559,6 +562,10 @@ class Agent():
                             prc(PREFIX, "on factory recharge")
                             actions.dropcargo_or_recharge(unit)
                         else:
+                            if unit.get_distance(closest_factory_area) > 3:
+                                prc(PREFIX, "cannot dig, but too far away from home, stay")
+                                actions.clear_action(unit, PREFIX)
+                                continue
                             # GO HOME
                             self.send_unit_home(PREFIX, game_state, actions, positions_to_avoid, closest_factory_center, closest_factory_area, turn, unit)
                             continue
