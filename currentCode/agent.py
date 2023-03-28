@@ -105,8 +105,8 @@ class Agent():
                 # loop each potential position
                 for loc in potential_spawns:
                     # the array of ice and ore distances
-                    ice_tile_distances = np.mean((ice_tile_locations - loc) ** 2, 1)
-                    ore_tile_distances = np.mean((ore_tile_locations - loc) ** 2, 1)
+                    ice_tile_distances = get_distance_vector_from_areas_given_center(loc,ice_tile_locations)
+                    ore_tile_distances = get_distance_vector_from_areas_given_center(loc,ore_tile_locations)
 
                     # the density of ruble between the location and d_ruble
                     x = loc[0]
@@ -122,44 +122,59 @@ class Agent():
                                           y1:y2]
                     # zero the centre 3x3 where we put the factory
                     area_factory = obs["board"]["rubble"][max(x - 1, 0):min(x + 1, 47), max(y - 1, 0):max(y + 1, 47)]
-
-                    area_size = (x2 - x1) * (y2 - y1)
-                    density_rubble = (np.sum(area_around_factory) - np.sum(area_factory)) / area_size
-                    potential_lichen = area_size * 100 - (np.sum(area_around_factory) - np.sum(area_factory))
+                    sum_rubble_10x10 = np.sum(area_around_factory)
+                    sum_rubble_3x3 = np.sum(area_factory)
+                    area_size = (x2 - x1) * (y2 - y1) - 9
+                    potential_lichen = area_size * 100 - (sum_rubble_10x10 - sum_rubble_3x3)
 
                     # prx(area_around_factory)
 
                     closes_opp_factory_dist = 0
                     if len(opp_factories) >= 1:
-                        closes_opp_factory_dist = np.min(np.mean((np.array(opp_factories) - loc) ** 2, 1))
+                        closes_opp_factory_dist = np.min(get_distance_vector_from_areas_given_center(loc,opp_factories))
                     closes_my_factory_dist = 0
                     if len(my_factories) >= 1:
-                        closes_my_factory_dist = np.min(np.mean((np.array(my_factories) - loc) ** 2, 1))
+                        closes_my_factory_dist = np.min(get_distance_vector_from_areas_given_center(loc,my_factories))
+
+
 
                     kpi_build_factory = 0
+                    ice_distance = np.min(ice_tile_distances)
+                    ore_distance = np.min(ore_tile_distances)
+
+                    kpi_build_factory = 0
+                    remaining_lichen = potential_lichen
                     if water_left > 0:
+
+                        if closes_my_factory_dist < 20:
+                            remaining_lichen = potential_lichen * (20. + closes_my_factory_dist) / 40.
+
                         # if we still have water, we crate meaningful factories
-                        kpi_build_factory = np.min(ice_tile_distances) * 10 \
-                                            + 0.01 * np.min(ore_tile_distances) \
-                                            - 0.01 * area_size \
-                                            - 0.1 * potential_lichen / (DIST_RUBLE) \
-                                            - closes_opp_factory_dist * 0.1 \
-                                            + closes_my_factory_dist * 0.01
+                        kpi_build_factory = (ice_distance * 10000.) \
+                                            + (ore_distance * 1.) \
+                                            - (remaining_lichen / 1000.)
+
+                        if closes_opp_factory_dist < 20:
+                            kpi_build_factory = kpi_build_factory - closes_opp_factory_dist / 5.
+                        else:
+                            kpi_build_factory = kpi_build_factory - 20./5.
                     else:
                         # water is zero. Create disruptive factory near the enemy
                         kpi_build_factory = closes_opp_factory_dist
 
+                    # pr(step, 'XXX', x, y, ice_distance, ore_distance, closes_opp_factory_dist, closes_my_factory_dist, area_size, sum_rubble_10x10,
+                    #    sum_rubble_3x3, potential_lichen, remaining_lichen, kpi_build_factory)
+
                     if kpi_build_factory < min_dist:
                         min_dist = kpi_build_factory
                         best_loc = loc
-                        chosen_params = (kpi_build_factory.round(2),
-                                         "ice=" + str(np.min(ice_tile_distances)),
-                                         "ore=" + str(np.min(ore_tile_distances)),
-                                         "are=" + str(area_size),
-                                         "lic=" + str(potential_lichen),
-                                         "ofc=" + str(closes_opp_factory_dist),
-                                         "mfc=" + str(closes_opp_factory_dist),
-                                         x1, x2, y1, y2
+                        chosen_params = ("ice=" + str(ice_distance),
+                                         "ore=" + str(ore_distance),
+                                         "potLic=" + str(potential_lichen),
+                                         "effLic=" + str(remaining_lichen),
+                                         "oppDis=" + str(closes_opp_factory_dist),
+                                         "frdDis=" + str(closes_my_factory_dist),
+                                         "kpi=" + str(kpi_build_factory.round(2))
                                          )
 
                 # choose location that is the best according to the KPI above

@@ -65,6 +65,16 @@ def if_is_day(turn, value_if_day, value_if_night):
 def get_distance_vector(pos, points):
     return 2 * np.mean(np.abs(points - pos), 1)
 
+def get_distance_vector_from_areas_given_center(pos,points):
+    distances = []
+    for p in points:
+        dist_vector = np.abs(p - pos)
+        if dist_vector[0] == 0 or dist_vector[1] ==0:
+            distances.append(dist_vector[0] + dist_vector[1] - 1)
+        else:
+            distances.append(dist_vector[0] + dist_vector[1] - 2)
+    return np.array(distances)
+
 # Manhattan Distance between two points
 def get_distance(pos1, pos2):
     return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
