@@ -126,8 +126,11 @@ class Agent():
                     sum_rubble_3x3 = np.sum(area_factory)
                     area_size = (x2 - x1) * (y2 - y1) - 9
                     potential_lichen = area_size * 100 - (sum_rubble_10x10 - sum_rubble_3x3)
+                    exploded_lichen = area_size * 100 - (sum_rubble_10x10 - sum_rubble_3x3 + 450)
 
-                    # prx(area_around_factory)
+                    # prx(x,y, area_around_factory)
+                    # prx(x,y, area_factory)
+
 
                     closes_opp_factory_dist = 0
                     if len(opp_factories) >= 1:
@@ -145,7 +148,7 @@ class Agent():
                     kpi_build_factory = 0
                     remaining_lichen = potential_lichen
                     if water_left > 0:
-
+                        #Normal KPIs
                         if closes_my_factory_dist < 20:
                             remaining_lichen = potential_lichen * (20. + closes_my_factory_dist) / 40.
 
@@ -160,10 +163,17 @@ class Agent():
                             kpi_build_factory = kpi_build_factory - 20./5.
                     else:
                         # water is zero. Create disruptive factory near the enemy
-                        kpi_build_factory = closes_opp_factory_dist
+                        kpi_build_factory = closes_opp_factory_dist * closes_opp_factory_dist
+                        if closes_my_factory_dist < 20:
+                            kpi_build_factory = kpi_build_factory - (closes_my_factory_dist * closes_my_factory_dist) / 2.
+                        else:
+                            kpi_build_factory = kpi_build_factory - 200.
+
+                        kpi_build_factory = kpi_build_factory - (exploded_lichen / 100.)
+
 
                     # pr(step, 'XXX', x, y, ice_distance, ore_distance, closes_opp_factory_dist, closes_my_factory_dist, area_size, sum_rubble_10x10,
-                    #    sum_rubble_3x3, potential_lichen, remaining_lichen, kpi_build_factory)
+                    #         sum_rubble_3x3, potential_lichen, remaining_lichen, kpi_build_factory)
 
                     if kpi_build_factory < min_dist:
                         min_dist = kpi_build_factory
