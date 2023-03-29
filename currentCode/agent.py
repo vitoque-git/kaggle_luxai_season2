@@ -105,8 +105,11 @@ class Agent():
                 # loop each potential position
                 for loc in potential_spawns:
                     # the array of ice and ore distances
-                    ice_tile_distances = get_distance_vector_from_areas_given_center(loc,ice_tile_locations)
-                    ore_tile_distances = get_distance_vector_from_areas_given_center(loc,ore_tile_locations)
+                    ice_tile_distances, ice_positions = get_distance_vector_from_areas_given_center(loc,ice_tile_locations )
+                    ore_tile_distances, ore_positions = get_distance_vector_from_areas_given_center(loc,ore_tile_locations )
+                    ice_distance = np.min(ice_tile_distances)
+                    ore_distance = np.min(ore_tile_distances)
+
 
                     # the density of ruble between the location and d_ruble
                     x = loc[0]
@@ -134,16 +137,15 @@ class Agent():
 
                     closes_opp_factory_dist = 0
                     if len(opp_factories) >= 1:
-                        closes_opp_factory_dist = np.min(get_distance_vector_from_areas_given_center(loc,opp_factories))
+                        closes_opp_factory_dist = np.min(get_distance_vector_from_areas_given_center(loc,opp_factories)[0])
                     closes_my_factory_dist = 0
                     if len(my_factories) >= 1:
-                        closes_my_factory_dist = np.min(get_distance_vector_from_areas_given_center(loc,my_factories))
+                        closes_my_factory_dist = np.min(get_distance_vector_from_areas_given_center(loc,my_factories)[0])
 
 
 
                     kpi_build_factory = 0
-                    ice_distance = np.min(ice_tile_distances)
-                    ore_distance = np.min(ore_tile_distances)
+
 
                     kpi_build_factory = 0
                     remaining_lichen = potential_lichen
@@ -499,6 +501,7 @@ class Agent():
                             and ((unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit)) \
                                 or (not on_factory and unit.cargo.ore == 0 and cost_home > 4 * unit.dig_cost()) \
                                 or (not on_factory and unit.cargo.ore < unit.cargo_space() / 2 and cost_home > 6 * unit.dig_cost()) \
+                                or (not on_factory and unit.is_heavy() and unit.cargo.ore < 250 ) \
                             ):
                         prc(PREFIX, "dig_or_go_to_resouce, cargo full =", unit.cargo.ore < unit.cargo_space(), ", estimate power=", unit.power + recharge_power,
                             'dig cost', Queue.real_cost_dig(unit), 'cost home=', cost_home)
@@ -743,9 +746,18 @@ class Agent():
 
                 # NO. BOTS PER TASK
                 for task in ['ice', 'kill', 'ore', 'rubble']:
-                    num_bots = len(self.factory_bots[factory_id][task]) + sum([task in self.factory_queue[factory_id]])
+                    num_bots = sum([task in self.factory_queue[factory_id]])
+                    for id in self.factory_bots[factory_id][task]:
+                        if id in units and units[id].is_heavy():
+                            num_bots = num_bots + 5
+                        else:
+                            num_bots = num_bots + 1
                     if num_bots < min_bots[task]:
                         prx(t_prefix, factory_id, "We have less bots(", num_bots, ") for", task, " than min", min_bots[task])
+                        if task == 'kill' and not factory.can_build_heavy(game_state):
+                            # do not build kill lights
+                            prx(t_prefix, factory_id, "Cannot build a light kill, power=", factory.power, ", metal=", factory.cargo.metal)
+                            continue
                         new_task = task
                         break
 
@@ -769,14 +781,35 @@ class Agent():
                         pr(t_prefix, factory.unit_id, "Cannot build robot, already an unit present", factory.pos)
                         continue
 
-                    if new_task in ['kill', 'ice']:
+                    ore_ajacent = False
+                    if new_task in ['kill', 'ore'] and factory.can_build_heavy(game_state):
+                        # Check if there is one Ore ajacent
+                        ore_tile_distances, ore_positions = get_distance_vector_from_areas_given_center(factory.pos_location(), np.argwhere(ore_map == 1))
+                        i = 0
+                        for ore_dist in ore_tile_distances:
+                            if ore_dist == 1:
+                                ore_loc = ore_positions[i]
+                                # pr(type(ore_loc), ore_loc)
+                                # pr(type( self.bot_resource.values()),  self.bot_resource.values())
+                                if ore_loc not in self.bot_resource.values():
+                                    pr(t_prefix, factory_id, factory.pos_location(), 'Ore is adjacent, can build heavy', ore_loc, ore_dist)
+                                    ore_ajacent = True
+                                    break
+                            i = i + 1
+                    if ore_ajacent and new_task == 'kill':
+                        pr(t_prefix, factory_id, factory.pos_location(), 'Ore is adjacent, kill converted to ore')
+                        new_task = 'ore'
+
+                    if new_task in ['ice', 'kill']:
                         if factory.can_build_heavy(game_state):
-                            self.build_heavy_robot(actions, factory, t_prefix)
+                            self.build_heavy_robot(actions, factory, t_prefix, new_task)
                         elif factory.can_build_light(game_state):
-                            self.build_light_robot(actions, factory, t_prefix)
+                            self.build_light_robot(actions, factory, t_prefix, new_task)
+                    elif ore_ajacent and new_task in ['ore'] and factory.can_build_heavy(game_state):
+                        self.build_heavy_robot(actions, factory, t_prefix, new_task)
                     else:
                         if factory.can_build_light(game_state):
-                            self.build_light_robot(actions, factory, t_prefix)
+                            self.build_light_robot(actions, factory, t_prefix, new_task)
 
                     built = True
 
@@ -949,16 +982,16 @@ class Agent():
                     return True
         return False
 
-    def build_light_robot(self, actions, factory, t_prefix):
+    def build_light_robot(self, actions, factory, t_prefix, role):
         actions.build_light(factory)
-        self.built_robot(factory, 'LIGHT', t_prefix)
+        self.built_robot(factory, 'LIGHT', t_prefix, role)
 
-    def build_heavy_robot(self, actions, factory, t_prefix):
+    def build_heavy_robot(self, actions, factory, t_prefix, role):
         actions.build_heavy(factory)
-        self.built_robot(factory, 'HEAVY', t_prefix)
+        self.built_robot(factory, 'HEAVY', t_prefix, role)
 
-    def built_robot(self, factory, type, t_prefix):
-        pr(t_prefix, factory.unit_id, "Build", type, "robot in", factory.pos)
+    def built_robot(self, factory, type, t_prefix, role):
+        pr(t_prefix, factory.unit_id, "Build", type, "robot in", factory.pos, 'role', role)
         self.built_robots.append(factory.pos_location())
         self.me.set_unit_next_position(factory.unit_id, factory.pos_location())
 

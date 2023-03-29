@@ -67,13 +67,15 @@ def get_distance_vector(pos, points):
 
 def get_distance_vector_from_areas_given_center(pos,points):
     distances = []
+    positions = []
     for p in points:
         dist_vector = np.abs(p - pos)
         if dist_vector[0] == 0 or dist_vector[1] ==0:
             distances.append(dist_vector[0] + dist_vector[1] - 1)
         else:
             distances.append(dist_vector[0] + dist_vector[1] - 2)
-    return np.array(distances)
+        positions.append((p[0],p[1]))
+    return np.array(distances), positions
 
 # Manhattan Distance between two points
 def get_distance(pos1, pos2):
