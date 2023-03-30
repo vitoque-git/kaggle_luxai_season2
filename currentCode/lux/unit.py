@@ -22,6 +22,15 @@ class Unit:
     unit_cfg: dict
     action_queue: List
 
+    def _to_string(self):
+        return self.unit_type_short() + "(" + str(self.power) + ") @" + str(self.pos) + ' ' + self.unit_id_short()
+
+    def _to_string2(self):
+        return self._to_string() + str(self.cargo)
+
+    def cargo_space_left(self):
+        return self.cargo_space() - self.cargo.ore - self.cargo.ice - self.cargo.water - self.cargo.metal
+
     def unit_type_short(self):
         if len(self.unit_type) > 0:
             return self.unit_type[0]

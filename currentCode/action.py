@@ -81,11 +81,13 @@ class Queue:
     def action_pickup_full_power(unit: lux.kit.Unit, repeat=False, n=1):
         return Queue.action_pickup_power(unit, unit.battery_capacity() - unit.power, repeat=repeat, n=n)
 
-    def action_transfer_ice(unit: lux.kit.Unit):
-        return unit.transfer(0, 0, unit.cargo.ice, repeat=False)
+    def action_transfer_ice(unit: lux.kit.Unit, direction=0, amount=None):
+        if amount is None: amount = unit.cargo.ice
+        return unit.transfer(direction, 0, unit.cargo.ice, repeat=False)
 
-    def action_transfer_ore(unit: lux.kit.Unit):
-        return unit.transfer(0, 1, unit.cargo.ore, repeat=False)
+    def action_transfer_ore(unit: lux.kit.Unit, direction=0, amount=None):
+        if amount is None: amount = unit.cargo.ore
+        return unit.transfer(direction, 1, unit.cargo.ore, repeat=False)
 
     def action_transfer_power(unit: lux.kit.Unit, direction, amount):
         return unit.transfer(direction, 4, amount, repeat=False)
@@ -170,11 +172,11 @@ class Action_Queue():
             # only dig if we are not already digging.
             self.actions[unit.unit_id] = [unit.dig(repeat=False, n=9999)]
 
-    def transfer_ice(self, unit):
-        self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit)]
+    def transfer_ice(self, unit, direction=0):
+        self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit,direction=direction)]
 
-    def transfer_ore(self, unit):
-        self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit)]
+    def transfer_ore(self, unit, direction=0):
+        self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit,direction=direction)]
 
     def transfer_energy(self, unit, direction, amount):
         self.actions[unit.unit_id] = [Queue.action_transfer_power(unit, direction, amount)]
