@@ -29,7 +29,7 @@ def prx(*args): pr(*args, force=True)
 
 
 def prc(*args):  # print conditionally
-    if (False and (('xu_12' in args[0]) or ('u_57' in args[0]))):
+    if (False and (('xu_12' in args[0]) or ('u_8' in args[0]))):
         pr(*args, force=True)
 
 
@@ -213,8 +213,6 @@ class Agent():
         game_state = obs_to_game_state(step, self.env_cfg, obs)
         self.path_finder.build_path(game_state, self.player, self.opp_player)
         actions = Action_Queue(game_state)
-        state_obs = obs
-        power_transfered = {}  # index is position
 
         turn = obs["real_env_steps"]
 
@@ -309,49 +307,55 @@ class Agent():
                 pr("TCFAIL 306", unit_id, 'not in units')
                 continue
             unit = units[unit_id]
-            if unit.pos_location() == self.bot_resource[unit_id]:
+            unit_on_resource = unit.pos_location() == self.bot_resource[unit_id]
+            if unit_on_resource:
                 # heavy tends to stay on a location for long time, we can exclude from possible paths
                 if unit.is_heavy():
                     # prx(t_prefix,"heavy on resource, excluding from path",unit._to_string())
                     heavy_to_avoid.append(unit.pos_location())
 
-                if enable_transfer and (unit.cargo.ore + unit.cargo.ice > 0):
-                    for friend_id, friend_task in self.bots_task.items():
-                        if friend_task != task:
-                            continue
-                        if friend_id not in units or friend_id not in self.bot_resource:
-                            pr("TCFAIL 312", unit_id, 'not in units')
-                            continue
-                        friend = units[friend_id]
-                        # prx('XXX',task, unit_id, friend_id, self.bot_resource[unit_id], self.bot_resource[friend_id])
-                        if friend_id != unit_id and self.bot_resource[friend_id] == self.bot_resource[unit_id] \
-                                and get_distance(friend.pos_location(), unit.pos_location()) == 1:
-                            # TODO CHECK IF ENEMY CLOSE
-                            transferred_cargo = False
-                            transferred_power = False
-                            prx(t_prefix, "share the same resource, adjacent", unit.to_string2(), "|", friend.to_string2())
-                            if unit.cargo.ore + unit.cargo.ice > friend.cargo.ore + friend.cargo.ice and friend.cargo_space_left() > 0:
-                                direction_unit_to_friend, m = get_straight_direction(unit, friend.pos)
-                                if unit.cargo.ice > 0:
-                                    amount = min(unit.cargo.ice, friend.cargo_space_left())
-                                    actions.transfer_ice(unit, direction_unit_to_friend, amount)
-                                    prx(t_prefix, "transferring", amount,"ice from", unit.to_string2(), "to", friend.to_string2())
-                                elif unit.cargo.ore > 0:
-                                    amount = min(unit.cargo.ore, friend.cargo_space_left())
-                                    actions.transfer_ore(unit, direction_unit_to_friend, amount)
-                                    prx(t_prefix, "transferring", amount, "ore from", unit.to_string2(), "to", friend.to_string2())
-                                transferred_cargo = True
-                            if unit.battery_capacity() > 0 and friend.power > 0:
-                                direction_friend_to_unit, m = get_straight_direction(friend, unit.pos)
-                                amount = min(friend.power, unit.battery_capacity())
-                                actions.transfer_energy(friend, direction_friend_to_unit, amount)
-                                prx(t_prefix, "transferring", amount,"power from", unit.to_string2(), "to", friend.to_string2())
-                                transferred_power = True
+            if enable_transfer and (unit.cargo.ore + unit.cargo.ice > 0):
+                for friend_id, friend_task in self.bots_task.items():
+                    if friend_task != task:
+                        continue
+                    if friend_id not in units or friend_id not in self.bot_resource:
+                        pr("TCFAIL 312", unit_id, 'not in units')
+                        continue
+                    friend = units[friend_id]
+                    if friend_id != unit_id and self.bot_resource[friend_id] == self.bot_resource[unit_id] \
+                            and get_distance(friend.pos_location(), unit.pos_location()) == 1 and \
+                            (unit.pos_location() == self.bot_resource[unit_id] or
+                             (
+                                     np.min(get_distance_vector(friend.pos, self.me.get_factories_centers())) < np.min(get_distance_vector(unit.pos, self.me.get_factories_centers()))
+                             )):
+                        # TODO CHECK IF ENEMY CLOSE
+                        transferred_cargo = False
+                        transferred_power = False
+                        prx(t_prefix, "share the same resource, adjacent", unit.to_string2(), "|", friend.to_string2())
 
-                            if transferred_power and not transferred_cargo:
-                                actions.set_cannot_move(unit)
-                            elif transferred_cargo and not transferred_power:
-                                actions.set_cannot_move(friend)
+                        if friend.cargo_space_left() > 0 and unit.cargo.total() > 0 and \
+                                (unit.cargo.total() > max(friend.cargo.total(), unit.cargo_space()/20) or not unit_on_resource):
+                            direction_unit_to_friend, m = get_straight_direction(unit, friend.pos)
+                            if unit.cargo.ice > 0:
+                                amount = min(unit.cargo.ice, friend.cargo_space_left())
+                                actions.transfer_ice(unit, direction_unit_to_friend, amount)
+                                prx(t_prefix, "transferring", amount,"ice from", unit.to_string2(), "to", friend.to_string2())
+                            elif unit.cargo.ore > 0:
+                                amount = min(unit.cargo.ore, friend.cargo_space_left())
+                                actions.transfer_ore(unit, direction_unit_to_friend, amount)
+                                prx(t_prefix, "transferring", amount, "ore from", unit.to_string2(), "to", friend.to_string2())
+                            transferred_cargo = True
+                        if unit.battery_capacity() > 0 and friend.power > friend.battery_capacity() / 50:
+                            direction_friend_to_unit, m = get_straight_direction(friend, unit.pos)
+                            amount = min(friend.power, unit.battery_capacity())
+                            actions.transfer_energy(friend, direction_friend_to_unit, amount)
+                            prx(t_prefix, "transferring", amount,"power from", unit.to_string2(), "to", friend.to_string2())
+                            transferred_power = True
+
+                        if transferred_power and not transferred_cargo:
+                            actions.set_cannot_move(unit)
+                        elif transferred_cargo and not transferred_power:
+                            actions.set_cannot_move(friend)
 
 
 
@@ -540,8 +544,13 @@ class Agent():
                 if assigned_task == "ice":
                     cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid, closest_factory_area)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
+                    on_ice = self.on_ice(game_state, unit.pos)
 
-                    if unit.cargo.ice < unit.cargo_space() \
+                    # prc(PREFIX,'on ice', on_ice)
+                    # prc(PREFIX, '1on ice', (on_ice and unit.cargo.ice < unit.cargo_space()) or ((not on_ice) and unit.cargo.ice == 0))
+                    # prc(PREFIX, '2on ice', (unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit)))
+
+                    if ((on_ice and unit.cargo.ice < unit.cargo_space()) or ((not on_ice) and unit.cargo.ice == 0)) \
                             and ((unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit)) \
                                 or (not on_factory and unit.cargo.ice == 0 and cost_home > 4 * unit.dig_cost()) \
                                 or (not on_factory and unit.cargo.ice < unit.cargo_space() / 2 and cost_home > 6 * unit.dig_cost()) \
@@ -563,12 +572,18 @@ class Agent():
                     # prx(PREFIX, "Looking for ore")
                     cost_home = self.get_cost_to(game_state, unit, turn, positions_to_avoid, closest_factory_area, PREFIX=PREFIX)
                     recharge_power = if_is_day(turn + 1, unit.charge_per_turn(), 0)
+                    on_ore = self.on_ore(game_state, unit.pos)
 
-                    if unit.cargo.ore < unit.cargo_space() \
+                    # prc(PREFIX,'on ore', on_ore)
+                    # prc(PREFIX, '1on ore', (on_ore and unit.cargo.ore < unit.cargo_space()) or ((not on_ore) and unit.cargo.ore == 0))
+                    # prc(PREFIX, '2on ore', (unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit)))
+
+                    if ((on_ore and unit.cargo.ore < unit.cargo_space()) or ((not on_ore) and unit.cargo.ore == 0)) \
                             and ((unit.power + recharge_power > Queue.real_cost_dig(unit) + cost_home and actions.can_dig(unit)) \
                                 or (not on_factory and unit.cargo.ore == 0 and cost_home > 4 * unit.dig_cost()) \
                                 or (not on_factory and unit.cargo.ore < unit.cargo_space() / 2 and cost_home > 6 * unit.dig_cost()) \
                                 or (not on_factory and unit.is_heavy() and unit.cargo.ore < 250 ) \
+                                or (actions.can_dig(unit) and not actions.can_move(unit,game_state) ) \
                             ):
                         prc(PREFIX, "dig_or_go_to_resouce, cargo full =", unit.cargo.ore < unit.cargo_space(), ", estimate power=", unit.power + recharge_power,
                             'dig cost', Queue.real_cost_dig(unit), 'cost home=', cost_home)
@@ -676,7 +691,7 @@ class Agent():
                             continue
 
                 elif assigned_task == 'kill':
-                    if on_factory and (unit.cargo.ice > 0 or unit.cargo.ore > 0):
+                    if on_factory and (unit.cargo.total() > 0):
                         prc(PREFIX, "on base dropcargo_or_recharge")
                         actions.dropcargo_or_recharge(unit)
                         continue
@@ -912,6 +927,21 @@ class Agent():
     def get_rubble_amount(self, game_state, pos):
         return game_state.board.rubble[pos[0], pos[1]]
 
+    def get_ice_amount(self, game_state, pos):
+        return game_state.board.ice[pos[0], pos[1]]
+
+    def get_ore_amount(self, game_state, pos):
+        return game_state.board.ore[pos[0], pos[1]]
+
+    def on_rubble(self,game_state,pos):
+        return self.get_rubble_amount(game_state,pos)>0
+
+    def on_ice(self, game_state, pos):
+        return self.get_ice_amount(game_state, pos) > 0
+
+    def on_ore(self, game_state, pos):
+        return self.get_ore_amount(game_state, pos) > 0
+
     def get_distances_info(self, pos, position_vector):
         distances = get_distance_vector(pos, position_vector)
         min_distance = np.min(distances)
@@ -1029,25 +1059,6 @@ class Agent():
             actions.set_new_actions(unit, unit_actions, PREFIX)
             self.me.set_unit_next_position(unit.unit_id, new_pos)
         return direction, new_pos, unit_actions
-
-    def check_can_transef_power_next_unit(self, PREFIX, unit, actions, target_position, power_transfered: dict):
-        if unit.get_distance(target_position) == 1:
-            direction, move_to = get_straight_direction(unit, target_position)
-            if direction != 0 and move_to in self.me.get_unit_positions():
-                unit_moving_on: lux.kit.Unit = self.me.get_unit_from_current_position(move_to)
-                # if the unit is supposed to be there next turn and has power capacity
-                if unit_moving_on.battery_capacity_left() > 0 and move_to == self.me.unit_next_positions[unit_moving_on.unit_id]:
-                    # prx(PREFIX, "going on top of", unit_moving_on.unit_id)
-                    # prx(PREFIX, 'me ', unit.cargo, 'power', unit.battery_info())
-                    # prx(PREFIX, 'him', unit_moving_on.cargo, 'power', unit_moving_on.battery_info())
-                    power_given = min(unit.power, unit_moving_on.battery_capacity_left())
-                    actions.transfer_energy(unit, direction, power_given)
-                    if move_to in power_transfered:
-                        power_transfered[move_to] += power_given
-                    else:
-                        power_transfered[move_to] = power_given
-                    return True
-        return False
 
     def build_light_robot(self, actions, factory, t_prefix, role):
         actions.build_light(factory)

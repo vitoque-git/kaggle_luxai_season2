@@ -133,7 +133,7 @@ class Action_Queue():
             # already moving there, only move cost
             return unit._move_cost(game_state, direction)
 
-    def can_move(self, unit: lux.kit.Unit, game_state, direction):
+    def can_move(self, unit: lux.kit.Unit, game_state, direction=0):
         if unit.unit_id in self.units_cannot_move: return False
         if not Queue.is_next_queue_move(unit, direction):
             # not already moving there, move cost + cost action queue cost

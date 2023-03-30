@@ -48,6 +48,8 @@ class PlayerHelper():
     def get_factories_areas(self):
         return self.factory_areas
 
+    def get_factories_centers(self):
+        return list(self.factory_positions.keys())
 
     def get_unit_positions(self):
         return self.unit_current_positions.keys()

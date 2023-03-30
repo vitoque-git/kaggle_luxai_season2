@@ -29,7 +29,7 @@ class Unit:
         return self.to_string() + str(self.cargo)
 
     def cargo_space_left(self):
-        return self.cargo_space() - self.cargo.ore - self.cargo.ice - self.cargo.water - self.cargo.metal
+        return self.cargo_space() - self.cargo.total()
 
     def unit_type_short(self):
         if len(self.unit_type) > 0:
