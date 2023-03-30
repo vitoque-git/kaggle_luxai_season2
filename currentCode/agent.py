@@ -300,45 +300,61 @@ class Agent():
                             self.bot_resource.pop(unit_id)
 
         #TEAM work
+        enable_transfer = True
         heavy_to_avoid = []
-        for task in ['ice', 'ore']:
-            for unit_id in self.factory_bots[factory_id][task]:
-                if unit_id in self.bot_resource:
-                    if unit_id not in units:
-                        pr("TCFAIL 306", unit_id, 'not in units')
-                        continue
-                    unit = units[unit_id]
-                    if unit.pos_location() == self.bot_resource[unit_id]:
-                        # heavy tends to stay on a location for long time, we can exclude from possible paths
-                        if unit.is_heavy():
-                            # prx(t_prefix,"heavy on resource, excluding from path",unit._to_string())
-                            heavy_to_avoid.append(unit.pos_location())
+        for unit_id, task in self.bots_task.items():
+            if task not in ['ice', 'ore']:
+                continue
+            if unit_id not in units or unit_id not in self.bot_resource:
+                pr("TCFAIL 306", unit_id, 'not in units')
+                continue
+            unit = units[unit_id]
+            if unit.pos_location() == self.bot_resource[unit_id]:
+                # heavy tends to stay on a location for long time, we can exclude from possible paths
+                if unit.is_heavy():
+                    # prx(t_prefix,"heavy on resource, excluding from path",unit._to_string())
+                    heavy_to_avoid.append(unit.pos_location())
 
-                        # if (unit.cargo.ore + unit.cargo.ice > 0):
-                        #     for friend_id, friend_loc in self.bot_resource.items():
-                        #         if friend_id not in units:
-                        #             pr("TCFAIL 312", unit_id, 'not in units')
-                        #             continue
-                        #         friend = units[friend_id]
-                        #         if friend_id != unit_id and self.bot_resource[friend_id] == self.bot_resource[unit_id] \
-                        #                 and get_distance(units[friend_id].pos_location(), unit.pos_location()) == 1:
-                        #             prx(t_prefix, "share the same resource, adjacent", unit._to_string2(), "|", friend._to_string2())
-                        #             if unit.cargo.ore + unit.cargo.ice > friend.cargo.ore + friend.cargo.ice and friend.cargo_space_left() > 0:
-                        #                 direction_unit_to_friend, move_to = get_straight_direction(unit, friend.pos)
-                        #                 if unit.cargo.ice > 0:
-                        #                     actions.transfer_ice()
-                        #                 if direction_unit_to_friend != 0:
-                        #                     if unit_moving_on.battery_capacity_left() > 0 and move_to == self.me.unit_next_positions[unit_moving_on.unit_id]:
-                        #                         # prx(PREFIX, "going on top of", unit_moving_on.unit_id)
-                        #                         # prx(PREFIX, 'me ', unit.cargo, 'power', unit.battery_info())
-                        #                         # prx(PREFIX, 'him', unit_moving_on.cargo, 'power', unit_moving_on.battery_info())
-                        #                         power_given = min(unit.power, unit_moving_on.battery_capacity_left())
-                        #                         actions.transfer_energy(unit, direction, power_given)
-                        #                         if move_to in power_transfered:
-                        #                             power_transfered[move_to] += power_given
-                        #                         else:
-                        #                             power_transfered[move_to] = power_given
-                        #                         return True
+                if enable_transfer and (unit.cargo.ore + unit.cargo.ice > 0):
+                    for friend_id, friend_task in self.bots_task.items():
+                        if friend_task != task:
+                            continue
+                        if friend_id not in units or friend_id not in self.bot_resource:
+                            pr("TCFAIL 312", unit_id, 'not in units')
+                            continue
+                        friend = units[friend_id]
+                        # prx('XXX',task, unit_id, friend_id, self.bot_resource[unit_id], self.bot_resource[friend_id])
+                        if friend_id != unit_id and self.bot_resource[friend_id] == self.bot_resource[unit_id] \
+                                and get_distance(friend.pos_location(), unit.pos_location()) == 1:
+                            # TODO CHECK IF ENEMY CLOSE
+                            transferred_cargo = False
+                            transferred_power = False
+                            prx(t_prefix, "share the same resource, adjacent", unit.to_string2(), "|", friend.to_string2())
+                            if unit.cargo.ore + unit.cargo.ice > friend.cargo.ore + friend.cargo.ice and friend.cargo_space_left() > 0:
+                                direction_unit_to_friend, m = get_straight_direction(unit, friend.pos)
+                                if unit.cargo.ice > 0:
+                                    amount = min(unit.cargo.ice, friend.cargo_space_left())
+                                    actions.transfer_ice(unit, direction_unit_to_friend, amount)
+                                    prx(t_prefix, "transferring", amount,"ice from", unit.to_string2(), "to", friend.to_string2())
+                                elif unit.cargo.ore > 0:
+                                    amount = min(unit.cargo.ore, friend.cargo_space_left())
+                                    actions.transfer_ore(unit, direction_unit_to_friend, amount)
+                                    prx(t_prefix, "transferring", amount, "ore from", unit.to_string2(), "to", friend.to_string2())
+                                transferred_cargo = True
+                            if unit.battery_capacity() > 0 and friend.power > 0:
+                                direction_friend_to_unit, m = get_straight_direction(friend, unit.pos)
+                                amount = min(friend.power, unit.battery_capacity())
+                                actions.transfer_energy(friend, direction_friend_to_unit, amount)
+                                prx(t_prefix, "transferring", amount,"power from", unit.to_string2(), "to", friend.to_string2())
+                                transferred_power = True
+
+                            if transferred_power and not transferred_cargo:
+                                actions.set_cannot_move(unit)
+                            elif transferred_cargo and not transferred_power:
+                                actions.set_cannot_move(friend)
+
+
+
 
 
 
@@ -346,7 +362,11 @@ class Agent():
         # UNIT LOOP
         for unit_id, unit in iter(sorted(units.items())):
 
-            PREFIX = t_prefix + " " + unit._to_string()
+            #already in team actions
+            if unit_id in actions.actions:
+                continue
+
+            PREFIX = t_prefix + " " + unit.to_string()
             # prc(PREFIX)
             if unit_id not in self.bots_task.keys():
                 self.bots_task[unit_id] = ''

@@ -103,6 +103,10 @@ class Action_Queue():
     def __init__(self, game_state) -> None:
         self.game_state = game_state
         self.actions = dict()
+        self.units_cannot_move = []
+
+    def set_cannot_move(self, unit: lux.kit.Unit):
+        self.units_cannot_move.append(unit.unit_id)
 
     def build_heavy(self, f):
         self.actions[f.unit_id] = f.build_heavy()
@@ -130,6 +134,7 @@ class Action_Queue():
             return unit._move_cost(game_state, direction)
 
     def can_move(self, unit: lux.kit.Unit, game_state, direction):
+        if unit.unit_id in self.units_cannot_move: return False
         if not Queue.is_next_queue_move(unit, direction):
             # not already moving there, move cost + cost action queue cost
             return unit._can_move_to(game_state, direction, extra_cost=unit.action_queue_cost())
@@ -172,11 +177,11 @@ class Action_Queue():
             # only dig if we are not already digging.
             self.actions[unit.unit_id] = [unit.dig(repeat=False, n=9999)]
 
-    def transfer_ice(self, unit, direction=0):
-        self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit,direction=direction)]
+    def transfer_ice(self, unit, direction=0, amount=None):
+        self.actions[unit.unit_id] = [Queue.action_transfer_ice(unit,direction=direction, amount=amount)]
 
-    def transfer_ore(self, unit, direction=0):
-        self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit,direction=direction)]
+    def transfer_ore(self, unit, direction=0, amount=None):
+        self.actions[unit.unit_id] = [Queue.action_transfer_ore(unit,direction=direction, amount=amount)]
 
     def transfer_energy(self, unit, direction, amount):
         self.actions[unit.unit_id] = [Queue.action_transfer_power(unit, direction, amount)]
@@ -230,5 +235,6 @@ class Action_Queue():
                         else:
                             pr(PREFIX, 'old action used', unit.action_queue)
                         # exit(0)
+
 
 
