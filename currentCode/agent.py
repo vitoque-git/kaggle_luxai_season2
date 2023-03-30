@@ -1,3 +1,4 @@
+import copy
 import math
 
 from numpy import dtype
@@ -298,10 +299,54 @@ class Agent():
                             prx(t_prefix, unit_id, "old resource", old_loc, 'exhausted')
                             self.bot_resource.pop(unit_id)
 
+        #TEAM work
+        heavy_to_avoid = []
+        for task in ['ice', 'ore']:
+            for unit_id in self.factory_bots[factory_id][task]:
+                if unit_id in self.bot_resource:
+                    if unit_id not in units:
+                        pr("TCFAIL 306", unit_id, 'not in units')
+                        continue
+                    unit = units[unit_id]
+                    if unit.pos_location() == self.bot_resource[unit_id]:
+                        # heavy tends to stay on a location for long time, we can exclude from possible paths
+                        if unit.is_heavy():
+                            # prx(t_prefix,"heavy on resource, excluding from path",unit._to_string())
+                            heavy_to_avoid.append(unit.pos_location())
+
+                        # if (unit.cargo.ore + unit.cargo.ice > 0):
+                        #     for friend_id, friend_loc in self.bot_resource.items():
+                        #         if friend_id not in units:
+                        #             pr("TCFAIL 312", unit_id, 'not in units')
+                        #             continue
+                        #         friend = units[friend_id]
+                        #         if friend_id != unit_id and self.bot_resource[friend_id] == self.bot_resource[unit_id] \
+                        #                 and get_distance(units[friend_id].pos_location(), unit.pos_location()) == 1:
+                        #             prx(t_prefix, "share the same resource, adjacent", unit._to_string2(), "|", friend._to_string2())
+                        #             if unit.cargo.ore + unit.cargo.ice > friend.cargo.ore + friend.cargo.ice and friend.cargo_space_left() > 0:
+                        #                 direction_unit_to_friend, move_to = get_straight_direction(unit, friend.pos)
+                        #                 if unit.cargo.ice > 0:
+                        #                     actions.transfer_ice()
+                        #                 if direction_unit_to_friend != 0:
+                        #                     if unit_moving_on.battery_capacity_left() > 0 and move_to == self.me.unit_next_positions[unit_moving_on.unit_id]:
+                        #                         # prx(PREFIX, "going on top of", unit_moving_on.unit_id)
+                        #                         # prx(PREFIX, 'me ', unit.cargo, 'power', unit.battery_info())
+                        #                         # prx(PREFIX, 'him', unit_moving_on.cargo, 'power', unit_moving_on.battery_info())
+                        #                         power_given = min(unit.power, unit_moving_on.battery_capacity_left())
+                        #                         actions.transfer_energy(unit, direction, power_given)
+                        #                         if move_to in power_transfered:
+                        #                             power_transfered[move_to] += power_given
+                        #                         else:
+                        #                             power_transfered[move_to] = power_given
+                        #                         return True
+
+
+
+
         # UNIT LOOP
         for unit_id, unit in iter(sorted(units.items())):
 
-            PREFIX = t_prefix + " " + unit.unit_type_short() + "(" + str(unit.power) + ") @" + str(unit.pos) + ' ' + unit.unit_id_short()
+            PREFIX = t_prefix + " " + unit._to_string()
             # prc(PREFIX)
             if unit_id not in self.bots_task.keys():
                 self.bots_task[unit_id] = ''
@@ -455,8 +500,10 @@ class Agent():
                         'to', self.bots_task[unit_id])
                     assigned_task = self.bots_task[unit_id]
 
-                # position to avoid
-                positions_to_avoid = []
+                # position to avoid, start with the heavy to avoid, add adjacents
+                positions_to_avoid = copy.copy(heavy_to_avoid)
+                if unit.pos_location() in positions_to_avoid:
+                    positions_to_avoid.remove(unit.pos_location())
                 for p in self.me.get_unit_next_positions():
                     if get_distance(unit.pos_location(), p) == 1:
                         positions_to_avoid.append(p)
