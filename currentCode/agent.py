@@ -906,14 +906,19 @@ class Agent():
             if not built:
                 if (factory.cargo.water - factory.water_cost(game_state)) > 1:
                     # at the end, we start water if we can
+                    estimated_water = factory.cargo.water + min(math.floor(factory.cargo.ice / 4), turn_left * 25)
                     if turn_left < 10 and \
-                            (factory.cargo.water + math.floor(factory.cargo.ice / 4) - factory.water_cost(game_state)) > turn_left:
+                            estimated_water - factory.water_cost(game_state) > turn_left:
                         # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.ice, "cost=", factory.water_cost(game_state),"left=", turn_left)
                         actions.water(factory)
 
                     # anyway, we start water if we have resource to water till the end
-                    elif (factory.cargo.water + math.floor(factory.cargo.ice / 4)) > turn_left * max(1, (1 + factory.water_cost(game_state))):
+                    elif estimated_water > turn_left * max(1, (1 + factory.water_cost(game_state))):
                         # prx(t_prefix, 'water', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.ice, "cost=", factory.water_cost(game_state), "left=", turn_left)
+                        actions.water(factory)
+
+                    elif True and factory.water_cost(game_state)> 4 and estimated_water > 50 + 20 * max(1, (1 + factory.water_cost(game_state))):
+                        prx(t_prefix, 'water boost', factory_id, "water=", factory.cargo.water, "ice=", factory.cargo.ice, "cost=", factory.water_cost(game_state), "left=", turn_left)
                         actions.water(factory)
 
         # if turn==205:
