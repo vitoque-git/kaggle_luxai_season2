@@ -5,9 +5,7 @@ lux Ai Season2
 
 This project showcase the code that achieved the [49th place (out 646 participants)](https://www.kaggle.com/competitions/lux-ai-season-2/leaderboard) in the Lux-UI Kaggle competition.
 
-You can see the engine in action in this replay against a pure ML engine:
-
-https://www.kaggle.com/competitions/lux-ai-season-2/leaderboard?dialog=episodes-episode-51766491
+You can see the engine in action in this [replay against a pure ML engine](https://s2vis.lux-ai.org/#/visualizer?input=https%3A%2F%2Fwww.kaggle.com%2Fcompetitions%2Flux-ai-season-2%2Fleaderboard%3Fdialog%3Depisodes-episode-51766491)
 
 It uses a mix of rule base engine, and an machine learning one that have been developed in parallel.
 
